@@ -1,6 +1,10 @@
 # Mac OS
 .DS_Store
 
+# Temporary files
+obj/*
+bin/*
+
 # Compiled Object files
 *.slo
 *.lo

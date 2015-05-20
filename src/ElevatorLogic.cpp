@@ -36,8 +36,11 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
 	// grab interface that sent notification
 	Interface *interf = static_cast<Interface*>(e.GetSender());
+	Person *person = static_cast<Person*>(e.GetEventHandler());
+	std::cout << "Person " << person->GetId() << " wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
 
 	// check if message really goes to elevator
+	// WARNING:Hardcoded to first entry, maybe should search for the right elevator here
 	Loadable *loadable = interf->GetLoadable(0);
 
 	if (loadable->GetType() == "Elevator")
@@ -81,11 +84,17 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	if (!moved_)
+	// only start moving if we're not moving yet
+	// and if we're not already on the highest floor
+	if (!moved_ && !ele->IsHighestFloor(ele->GetCurrentFloor()))
 	{
 		env.SendEvent("Elevator::Up", 0, this, ele);
 		env.SendEvent("Elevator::Stop", 4, this, ele);
 
 		moved_ = true;
+	}
+	else
+	{
+		std::cout << "Already on highest floor!" << std::endl;
 	}
 }
