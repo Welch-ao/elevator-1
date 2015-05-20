@@ -22,6 +22,7 @@ ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), moved_(false) {
 ElevatorLogic::~ElevatorLogic() {
 }
 
+// register all the handlers
 void ElevatorLogic::Initialize(Environment &env)
 {
 	env.RegisterEventHandler("Interface::Notify", this, &ElevatorLogic::HandleNotify);
@@ -30,9 +31,10 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
 }
 
+
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
-
+	// grab interface that sent notification
 	Interface *interf = static_cast<Interface*>(e.GetSender());
 	Loadable *loadable = interf->GetLoadable(0);
 
