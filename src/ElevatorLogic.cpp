@@ -50,17 +50,21 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	}
 }
 
-
+// open doors immediately after stopping
 void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
 
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	env.SendEvent("Elevator::Open", 0, this, ele);
+	// only open doors if we're at the middle of a floor
+	if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+	{
+		env.SendEvent("Elevator::Open", 0, this, ele);
+	}
 }
 
 
-// Close doors after 4 seconds
+// close doors after 4 seconds
 // WARNING: Hardcoded time
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
@@ -70,7 +74,7 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 	env.SendEvent("Elevator::Close", 4, this, ele);
 }
 
-// After closing doors, go up for 4 seconds
+// after closing doors, go up for 4 seconds
 // WARNING: Hardcoded!!!
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
