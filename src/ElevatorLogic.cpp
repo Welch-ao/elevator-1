@@ -31,21 +31,25 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
 }
 
-
+// 
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
 	// grab interface that sent notification
 	Interface *interf = static_cast<Interface*>(e.GetSender());
+
+	// check if message really goes to elevator
 	Loadable *loadable = interf->GetLoadable(0);
 
 	if (loadable->GetType() == "Elevator")
 	{
-
+		// do cast magic to pull out a pointer to an elevator object
 		Elevator *ele = static_cast<Elevator*>(loadable);
 
+		// let the appropriate elevator open doors
 		env.SendEvent("Elevator::Open", 0, this, ele);
 	}
 }
+
 
 void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
@@ -55,6 +59,9 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 	env.SendEvent("Elevator::Open", 0, this, ele);
 }
 
+
+// Close doors after 4 seconds
+// WARNING: Hardcoded time
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 
@@ -63,6 +70,8 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 	env.SendEvent("Elevator::Close", 4, this, ele);
 }
 
+// After closing doors, go up for 4 seconds
+// WARNING: Hardcoded!!!
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
 
