@@ -22,19 +22,22 @@ ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), moved_(false) {
 ElevatorLogic::~ElevatorLogic() {
 }
 
-void ElevatorLogic::Initialize(Environment &env) {
+void ElevatorLogic::Initialize(Environment &env)
+{
 	env.RegisterEventHandler("Interface::Notify", this, &ElevatorLogic::HandleNotify);
 	env.RegisterEventHandler("Elevator::Stopped", this, &ElevatorLogic::HandleStopped);
 	env.RegisterEventHandler("Elevator::Opened", this, &ElevatorLogic::HandleOpened);
 	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
 }
 
-void ElevatorLogic::HandleNotify(Environment &env, const Event &e) {
+void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
+{
 
 	Interface *interf = static_cast<Interface*>(e.GetSender());
 	Loadable *loadable = interf->GetLoadable(0);
 
-	if (loadable->GetType() == "Elevator") {
+	if (loadable->GetType() == "Elevator")
+	{
 
 		Elevator *ele = static_cast<Elevator*>(loadable);
 
@@ -42,25 +45,29 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e) {
 	}
 }
 
-void ElevatorLogic::HandleStopped(Environment &env, const Event &e) {
+void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
+{
 
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
 	env.SendEvent("Elevator::Open", 0, this, ele);
 }
 
-void ElevatorLogic::HandleOpened(Environment &env, const Event &e) {
+void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
+{
 
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
 	env.SendEvent("Elevator::Close", 4, this, ele);
 }
 
-void ElevatorLogic::HandleClosed(Environment &env, const Event &e) {
+void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
+{
 
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	if (!moved_) {
+	if (!moved_)
+	{
 		env.SendEvent("Elevator::Up", 0, this, ele);
 		env.SendEvent("Elevator::Stop", 4, this, ele);
 

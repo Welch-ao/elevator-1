@@ -18,7 +18,8 @@ class Elevator;
 class Floor;
 class Interface;
 
-class ElevatorLogic: public EventHandler {
+class ElevatorLogic: public EventHandler
+{
 
 public:
 	ElevatorLogic();
