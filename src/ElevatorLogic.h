@@ -33,7 +33,13 @@ private:
 	void HandleStopped(Environment &env, const Event &e);
 	void HandleOpened(Environment &env, const Event &e);
 	void HandleClosed(Environment &env, const Event &e);
-
+	
+	// Get and process status info on elevator
+	void HandleStatus(Environment &env, const Event &e);
+	
+	// Send elevator to given floor
+	void SendToFloor(Environment &env, Floor*,Elevator*);
+	
 	bool moved_;
 };
 

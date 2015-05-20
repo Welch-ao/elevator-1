@@ -26,19 +26,19 @@ ElevatorLogic::~ElevatorLogic() {
 void ElevatorLogic::Initialize(Environment &env)
 {
 	env.RegisterEventHandler("Interface::Notify", this, &ElevatorLogic::HandleNotify);
+	//env.RegisterEventHandler("Elevator::Status", this, &ElevatorLogic::HandleStatus);
 	env.RegisterEventHandler("Elevator::Stopped", this, &ElevatorLogic::HandleStopped);
 	env.RegisterEventHandler("Elevator::Opened", this, &ElevatorLogic::HandleOpened);
 	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
 }
 
-// 
+// What to do after recieving notification
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
 	// grab interface that sent notification
 	Interface *interf = static_cast<Interface*>(e.GetSender());
 	Person *person = static_cast<Person*>(e.GetEventHandler());
 	std::cout << "Person " << person->GetId() << " wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
-
 	// check if message really goes to elevator
 	// WARNING:Hardcoded to first entry, maybe should search for the right elevator here
 	Loadable *loadable = interf->GetLoadable(0);
@@ -50,6 +50,14 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 		// let the appropriate elevator open doors
 		env.SendEvent("Elevator::Open", 0, this, ele);
+	}
+	else
+	{
+
+		Elevator *ele = person->GetCurrentElevator();
+		std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
+		std::cout << "Cmon lets goooo!" << std::endl;
+		SendToFloor(env,person->GetFinalFloor(),ele);
 	}
 }
 
@@ -96,5 +104,38 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 	else
 	{
 		std::cout << "Already on highest floor!" << std::endl;
+	}
+}
+
+// void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
+// {
+// }
+
+// Send elevator to given floor
+void ElevatorLogic::SendToFloor(Environment &env,Floor *floor,Elevator *ele)
+{
+	// find out current floor
+	Floor *current = ele->GetCurrentFloor();
+	
+	std::cout << "Elevator currently at Floor " << current->GetId() << std::endl;
+	
+	// don't do anything if we're already there
+	if (floor == current)
+	{
+		std::cout << "Target floor already reached" << std::endl;
+		return;
+	}
+	
+	// send into right direction
+	// afterwards, let the elevator report every tick
+	if (floor->IsAbove(current))
+	{
+		env.SendEvent("Elevator::Up",0,this,ele);
+		env.SendEvent("Elevator::Status",0,ele,this);
+	}
+	else
+	{
+		env.SendEvent("Elevator::Down",0,this,ele);
+		//env.SendEvent("Elevator::Down",1,this,ele);
 	}
 }
