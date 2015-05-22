@@ -89,7 +89,16 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		}
 
 		// if there is no elevator at the calling persons floor
-
+		for(list<Elevator*>::iterator i = elevators.begin(); i != elevators.end(); ++i)
+		{
+			// take the first elevator idling and empty
+			if ((*i)->GetState() == Idle && elevatorState_[*i].passengers.empty())
+			{
+				// let the person in
+				SendToFloor(env,person->GetCurrentFloor(),ele);
+				return;
+			}
+		}
 
 		// //FYI
 		// std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
@@ -223,7 +232,7 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 
 // send elevator into general direction of given floor
 // WARNING: does not check if floor is reachable.
-void ElevatorLogic::SendToFloor(Environment &env,Floor *target,Elevator *ele)
+void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 {
 	// find out current floor
 	Floor *current = ele->GetCurrentFloor();
@@ -256,8 +265,12 @@ void ElevatorLogic::SendToFloor(Environment &env,Floor *target,Elevator *ele)
 
 void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 {
-	// if door is already closed or currently closing, open it again
-	if (elevatorState_[ele].doorState == Closed || elevatorState_[ele].doorState == Closing)
+	// only open door if stopped in the middle of a floor
+	bool stoppedProperly = !elevatorState_[ele].isMoving && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51;
+	// only open door if it is already closed or currently closing
+	bool doorClosed = elevatorState_[ele].doorState == Closed || elevatorState_[ele].doorState == Closing;
+
+	if (stoppedProperly && doorClosed)
 	{
 		env.SendEvent("Elevator::Open", delay, this, ele);
 	}
