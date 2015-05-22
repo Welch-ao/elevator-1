@@ -79,6 +79,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			if ((*i)->GetCurrentFloor() == person->GetCurrentFloor())
 			{
 				// let the person in
+				elevatorState_[*i].busy = true;
 				openDoor(env, 0, *i);
 				return;
 			}
@@ -144,28 +145,24 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevatorState_[ele].doorState = Opening;
-	elevatorState_[ele].busy = true;
 }
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevatorState_[ele].doorState = Opened;
-	elevatorState_[ele].busy = false;
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevatorState_[ele].doorState = Closing;
-	elevatorState_[ele].busy = true;
 }
 
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevatorState_[ele].doorState = Closed;
-	elevatorState_[ele].busy = false;
 }
 
 // react to elevators movement status
