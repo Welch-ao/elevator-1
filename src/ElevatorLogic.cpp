@@ -95,7 +95,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		}
 
 		// if none can come, try again next tick
-		env.SendEvent("Interace::Notify",1,interf,person);
+		env.SendEvent("Interface::Notify",1,interf,person);
 
 		// //FYI
 		// std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
