@@ -53,7 +53,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	if (loadable->GetType() == "Elevator")
 	{
 		// FYI
-		std::cout << "Person " << person->GetId() << " (on Floor " << person->GetCurrentFloor() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
+		std::cout << "Person " << person->GetId() << " (on Floor " << person->GetCurrentFloor()->GetId() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
 
 		// get all elevators that stop at this interface
 		list<Elevator*> elevators;
@@ -119,20 +119,19 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		//FYI
 		std::cout << "Person " << person->GetId() << " (inside Elevator " << ele->GetCurrentFloor()->GetId() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
 		
-		// close doors
-		env.SendEvent("Elevator::Close", 0, this, ele);
-		
 		// send elevator to where the person wants to go
 		// WARNING: Assumes person is inside...
 		SendToFloor(env,target,ele);
 	}
 }
 
-// open doors immediately after stopping
+// open doors immediately after stopping in the middle of a floor 
 void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
-
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
+
+	// set this elevator to moving state
+	elevatorState_[ele].isMoving = false;
 
 	// only open doors if we're at the middle of a floor
 	if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
@@ -140,7 +139,6 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 		env.SendEvent("Elevator::Open", 0, this, ele);
 	}
 }
-
 
 // update elevator state when something happens with the door
 void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
@@ -173,10 +171,13 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 	// NOTE: we assume the sender of a movement event is always an elevator
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	// FYI
+	// set this elevator to moving state
+	elevatorState_[ele].isMoving = true;
+
 	// get current floor id we're at
 	int floor = ele->GetCurrentFloor()->GetId();
 	
+	// FYI
 	std::string state = "State unknown";
 	switch (ele->GetState())
 	{
@@ -285,7 +286,6 @@ void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
 	if (!beeping && doorOpen)
 	{
 		env.SendEvent("Elevator::Close", 0, this, ele);
-
 	}
 }
 
