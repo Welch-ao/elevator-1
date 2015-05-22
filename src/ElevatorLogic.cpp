@@ -141,7 +141,7 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 // WARNING: Hardcoded time
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
-	elevatorState_[*i].busy = false;
+	elevatorState_[static_cast<Elevator*>(e.GetSender())].busy = false;
 // 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 // 
 // 	env.SendEvent("Elevator::Close", 4, this, ele);
@@ -151,7 +151,7 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 // WARNING: Hardcoded!!!
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
-	elevatorState_[*i].busy = false;
+	elevatorState_[static_cast<Elevator*>(e.GetSender())].busy = false;
 
 // 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 // 
@@ -287,7 +287,7 @@ void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
 
 	if (!beeping && doorOpen)
 	{
-		elevatorState_[*i].busy = true;
+		elevatorState_[ele].busy = true;
 		env.SendEvent("Elevator::Close", delay, this, ele);
 	}
 }
