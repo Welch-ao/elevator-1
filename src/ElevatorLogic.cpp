@@ -262,7 +262,6 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 	// @see HandleMoving
 }
 
-
 void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 {
 	// only open door if stopped in the middle of a floor

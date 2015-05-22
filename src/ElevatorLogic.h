@@ -61,7 +61,6 @@ private:
 	void HandleOpening(Environment &env, const Event &e);
 	void HandleOpened(Environment &env, const Event &e);
 	void HandleClosing(Environment &env, const Event &e);
-
 	void HandleClosed(Environment &env, const Event &e);
 	
 	// get and process status info on elevator
