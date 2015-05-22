@@ -45,6 +45,13 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// reference of a notification can only be a person
 	Person *person = static_cast<Person*>(e.GetEventHandler());
 
+	DEBUG_S
+	(
+		"Person " << person->GetId() <<
+		" (on Floor " << person->GetCurrentFloor()->GetId() << ")" <<
+		" wants to go to floor " << person->GetFinalFloor()->GetId()
+	);
+
 	// add person to tracked persons
 	// does nothing if already tracked
 	int timer = person->GetGiveUpTime();
@@ -58,18 +65,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// react to an interface interaction from outside the elevator
 	if (loadable->GetType() == "Elevator")
 	{
-		DEBUG_S
-		(
-			"Person " << person->GetId() <<
-			" (on Floor " << person->GetCurrentFloor()->GetId() << ")" <<
-			" wants to go to floor " << person->GetFinalFloor()->GetId()
-		);
-
-		// Get person timer
-		timer = person->GetGiveUpTime() - env.GetClock();
-
 		DEBUG
 		(
+			// Get person timer
+			timer = person->GetGiveUpTime() - env.GetClock();
 			if (timer > 0)
 			{
 				DEBUG_S("Person " << person->GetId() << " waits " << timer);
@@ -126,15 +125,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 		// if none can come, try again next tick
 		env.SendEvent("Interface::Notify",1,interf,person);
-
-
-		DEBUG_S
-		(
-			"Elevator currently at Floor " << ele->GetCurrentFloor()->GetId()
-		);
-
-		// // let the appropriate elevator open doors
-		// env.SendEvent("Elevator::Open", 0, this, ele);
 	}
 	// react to an interface interaction from inside the elevator
 	else
@@ -144,15 +134,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// get target from the interface input
 		Floor *target = static_cast<Floor*>(loadable);
 
-		//FYI
-		DEBUG_S
-		(
-			"Person " << person->GetId() << " (inside Elevator " << ele->GetId() << ")" <<
-			"wants to go to floor " << person->GetFinalFloor()->GetId()
-		);
-
 		// send elevator to where the person wants to go
-		// WARNING: Assumes person is inside...
 		SendToFloor(env,target,ele);
 	}
 }
@@ -233,7 +215,7 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 
 	DEBUG_S
 	(
-		"Current floor: " << floor << " (" << ele->GetPosition() << "), " << state;
+		"Current floor: " << floor << " (" << ele->GetPosition() << "), " << state
 	);
 
 	// NOTE: when we start moving the elevator, it sends a first notification automatically which has no data.

@@ -12,7 +12,7 @@
 // debug macros
 // @see http://stackoverflow.com/questions/14251038/debug-macros-in-c?lq=1
 
-
+#define DEBUGGING
 #ifdef DEBUGGING
 	#define debugging_output true
 
@@ -20,7 +20,7 @@
 	#define DEBUG_S(x) do \
 	 	{ \
 			if (debugging_output) \
-		  	{ std::cerr << "\tDEBUG: " << x << std::endl; } \
+		  	{ std::cerr << "\tDEBU: " << x << std::endl; } \
 		} while (0)
 
 	// the #x puts "x" and is call stringizing operator
@@ -28,7 +28,7 @@
 	#define DEBUG_V(x) do \
 		{ \
 			if (debugging_output) \
-			{ std::cerr << "\tDEBUG " << #x << ": " << x << std::endl; } \
+			{ std::cerr << "\tDEBU " << #x << ": " << x << std::endl; } \
 		} while (0)
 #else
 	#define DEBUG(x)
