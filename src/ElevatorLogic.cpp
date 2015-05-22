@@ -57,8 +57,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		{
 			// cast the loadables to elevator pointers
 			Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
-			std::cout << interf->GetLoadable(i)->GetType() << std::endl;
-
 			elevators.push_back(ele);
 
 			// while we're at it, add these elevators to our global map
