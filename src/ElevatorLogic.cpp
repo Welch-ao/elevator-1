@@ -16,7 +16,7 @@
 #include "Event.h"
 #include "Environment.h"
 
-ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), moved_(false) {}
+ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic") {}
 
 ElevatorLogic::~ElevatorLogic() {}
 
@@ -30,6 +30,8 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Elevator::Opened", this, &ElevatorLogic::HandleOpened);
 	env.RegisterEventHandler("Elevator::Closing", this, &ElevatorLogic::HandleClosing);
 	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
+	env.RegisterEventHandler("Person::Entered", this, &ElevatorLogic::HandleEntered);
+	env.RegisterEventHandler("Person::Exited", this, &ElevatorLogic::HandleExited);
 }
 
 // What to do after recieving notification
@@ -43,8 +45,12 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// reference of a notification can only be a person
 	Person *person = static_cast<Person*>(e.GetEventHandler());
 
+	// add person to tracked persons
+	// does nothing if already tracked
+	int timer = person->GetGiveUpTime();
+	pair<Person*,PersonState> personState = {person,PERS_DEFAULT_STATE(timer)};
+	persons_.insert(personState);
 
-	
 	// check if interface comes from inside an elevator or from a floor
 	// we see this from looking at the type of the interface's first loadable
 	Loadable *loadable = interf->GetLoadable(0);
@@ -52,8 +58,27 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// react to an interface interaction from outside the elevator
 	if (loadable->GetType() == "Elevator")
 	{
-		// FYI
-		std::cout << "Person " << person->GetId() << " (on Floor " << person->GetCurrentFloor()->GetId() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
+		DEBUG_S
+		(
+			"Person " << person->GetId() <<
+			" (on Floor " << person->GetCurrentFloor()->GetId() << ")" <<
+			" wants to go to floor " << person->GetFinalFloor()->GetId()
+		);
+
+		// Get person timer
+		timer = person->GetGiveUpTime() - env.GetClock();
+
+		DEBUG
+		(
+			if (timer > 0)
+			{
+				DEBUG_S("Person " << person->GetId() << " waits " << timer);
+			}
+			else if (timer == 0)
+			{
+				DEBUG_S("Person " << person->GetId() << " GIVES UP!");
+			}
+		);
 
 		// get all elevators that stop at this interface
 		list<Elevator*> elevs;
@@ -68,10 +93,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			// empty passenger list
 			set<Person*> passengers;
 			// closed door and not moving
-			pair<Elevator*,ElevatorState> state = {ele,DEFAULT_STATE};
+			pair<Elevator*,ElevatorState> elevState = {ele,ELEV_DEFAULT_STATE};
 
 			// put it into the global map (doesn't do anything if already exists)
-			elevators_.insert(state);
+			elevators_.insert(elevState);
 		}
 
 		// check if any elevator is already at the calling person
@@ -102,8 +127,11 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// if none can come, try again next tick
 		env.SendEvent("Interface::Notify",1,interf,person);
 
-		// //FYI
-		// std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
+
+		DEBUG_S
+		(
+			"Elevator currently at Floor " << ele->GetCurrentFloor()->GetId()
+		);
 
 		// // let the appropriate elevator open doors
 		// env.SendEvent("Elevator::Open", 0, this, ele);
@@ -115,17 +143,21 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		Elevator *ele = person->GetCurrentElevator();
 		// get target from the interface input
 		Floor *target = static_cast<Floor*>(loadable);
-		
+
 		//FYI
-		std::cout << "Person " << person->GetId() << " (inside Elevator " << ele->GetCurrentFloor()->GetId() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
-		
+		DEBUG_S
+		(
+			"Person " << person->GetId() << " (inside Elevator " << ele->GetId() << ")" <<
+			"wants to go to floor " << person->GetFinalFloor()->GetId()
+		);
+
 		// send elevator to where the person wants to go
 		// WARNING: Assumes person is inside...
 		SendToFloor(env,target,ele);
 	}
 }
 
-// open doors immediately after stopping in the middle of a floor 
+// open doors immediately after stopping in the middle of a floor
 void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
@@ -176,7 +208,7 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 
 	// get current floor id we're at
 	int floor = ele->GetCurrentFloor()->GetId();
-	
+
 	// FYI
 	std::string state = "State unknown";
 	switch (ele->GetState())
@@ -198,17 +230,24 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 		default:
 			break;
 	}
-	std::cout << "Current floor: " << floor << " (" << ele->GetPosition() << "), " << state;
-	
+
+	DEBUG_S
+	(
+		"Current floor: " << floor << " (" << ele->GetPosition() << "), " << state;
+	);
+
 	// NOTE: when we start moving the elevator, it sends a first notification automatically which has no data.
 	if(!e.GetData().empty())
 	{
 		// get the floor id we want to reach
 		int tgt_floor = std::stoi(e.GetData());
-		
+
 		// FYI
-		std::cout << " to floor " << tgt_floor << std::endl;
-		
+		DEBUG_S
+		(
+			" to floor " << tgt_floor
+		);
+
 		// stop if we're at the middle of the target floor
 		if (floor == tgt_floor && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 		{
@@ -220,11 +259,6 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 			env.SendEvent("Elevator::Moving",1,ele,ele,std::to_string(tgt_floor));
 		}
 	}
-	else
-	{
-		std::cout << std::endl;
-	}
-	
 }
 
 // send elevator into general direction of given floor
@@ -233,14 +267,7 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 {
 	// find out current floor
 	Floor *current = ele->GetCurrentFloor();
-	
-	// don't do anything if we're already there
-	// if (target == current)
-	// {
-	// 	std::cout << "Target floor already reached" << std::endl;
-	// 	return;
-	// }
-	
+
 	// close door before starting
 	closeDoor(env,0,ele);
 
@@ -252,11 +279,16 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 	}
 	else
 	{
-		env.SendEvent("Elevator::Down",3,this,ele);	
+		env.SendEvent("Elevator::Down",3,this,ele);
 	}
-	
-	// afterwards, let the elevator report after every tick
-	// (evil hack! we're misusing our ability to let the elevator send a message and pretend it does so on its own. the only reason is that (AFAIK) we can't do anything else to have a read-only interaction, since we can't declare new events for this class)
+
+	/*
+	(evil hack! we're misusing our ability to let the elevator send a message
+	and pretend it does so on its own. the only reason is that (AFAIK) we can't
+	do anything else to have a read-only interaction, since we can't declare
+	new events for this class)
+	 */
+
 	// pass the target floor id as data string
 	env.SendEvent("Elevator::Moving",4,ele,ele,std::to_string(target->GetId()));
 	// @see HandleMoving
@@ -289,3 +321,25 @@ void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
 	}
 }
 
+
+void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
+{
+	Person *person = static_cast<Person*>(e.GetSender());
+	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+
+	elevators_[ele].passengers.insert(person);
+	elevators_[ele].busy = true;
+}
+void ElevatorLogic::HandleExited(Environment &env, const Event &e)
+{
+	Person *person = static_cast<Person*>(e.GetSender());
+	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+
+	elevators_[ele].passengers.erase(person);
+
+	// free elevator from business after last person exited
+	if (elevators_[ele].passengers.empty())
+	{
+		elevators_[ele].busy = false;
+	}
+}

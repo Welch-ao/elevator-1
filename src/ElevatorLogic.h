@@ -8,6 +8,35 @@
 #ifndef ELEVATORLOGIC_H_
 #define ELEVATORLOGIC_H_
 
+
+// debug macros
+// @see http://stackoverflow.com/questions/14251038/debug-macros-in-c?lq=1
+
+
+#ifdef DEBUGGING
+	#define debugging_output true
+
+	#define DEBUG(x) x
+	#define DEBUG_S(x) do \
+	 	{ \
+			if (debugging_output) \
+		  	{ std::cerr << "\tDEBUG: " << x << std::endl; } \
+		} while (0)
+
+	// the #x puts "x" and is call stringizing operator
+	// @see https://msdn.microsoft.com/en-us/library/7e3a913x.aspx
+	#define DEBUG_V(x) do \
+		{ \
+			if (debugging_output) \
+			{ std::cerr << "\tDEBUG " << #x << ": " << x << std::endl; } \
+		} while (0)
+#else
+	#define DEBUG(x)
+	#define DEBUG_S(x)
+	#define DEBUG_V(x)
+#endif
+
+
 #include "EventHandler.h"
 
 #include <list>
@@ -33,7 +62,7 @@ public:
 		Closing,
 		Closed,
 		Opening,
-		Opened	
+		Opened
 	};
 
 	// state of an elevator
@@ -47,8 +76,18 @@ public:
 	} ElevatorState;
 
 	// default state of an elevator
-	#define DEFAULT_STATE {false,Closed,false,passengers,false}
+	#define ELEV_DEFAULT_STATE {false,Closed,false,passengers,false}
 
+	/*** PERSON ***/
+
+	// state of a person
+	typedef struct
+	{
+		int timer;
+	} PersonState;
+
+	// default state of a person
+	#define PERS_DEFAULT_STATE(timer) {timer}
 
 	ElevatorLogic();
 	virtual ~ElevatorLogic();
@@ -64,13 +103,19 @@ private:
 	void HandleClosing(Environment &env, const Event &e);
 
 	void HandleClosed(Environment &env, const Event &e);
-	
+
 	// get and process status info on elevator
 	void HandleMoving(Environment &env, const Event &e);
+
+	// handle entering and exiting persons
+	void HandleEntered(Environment &env, const Event &e);
+	void HandleExited(Environment &env, const Event &e);
+
 	// TODO:
+	// collect persons on the way.
+
 	// void HandleBeeping(Environment &env, const Event &e);
 	// void HandleBeeped(Environment &env, const Event &e);
-
 
 
 	/*** internal functions ***/
@@ -83,11 +128,10 @@ private:
 
 
 	// states of all elevators we already handled
-	// initially empty
 	map<Elevator*,ElevatorState> elevators_;
 
-	bool moved_;
-
+	// states of all persons we know
+	map<Person*,PersonState> persons_;
 };
 
 #endif /* ELEVATORLOGIC_H_ */
