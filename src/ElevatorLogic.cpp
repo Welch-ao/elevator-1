@@ -56,42 +56,42 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		std::cout << "Person " << person->GetId() << " (on Floor " << person->GetCurrentFloor()->GetId() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
 
 		// get all elevators that stop at this interface
-		list<Elevator*> elevators;
+		list<Elevator*> elevs;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
 		{
 			// cast the loadables to elevator pointers
 			Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
-			elevators.push_back(ele);
+			elevs.push_back(ele);
 
 			// while we're at it, add these elevators to our global map
 			// using default values for its state:
 			// empty passenger list
 			set<Person*> passengers;
 			// closed door and not moving
-			pair<Elevator*,State> state = {ele,DEFAULT_STATE};
+			pair<Elevator*,ElevatorState> state = {ele,DEFAULT_STATE};
 
 			// put it into the global map (doesn't do anything if already exists)
-			elevatorState_.insert(state);
+			elevators_.insert(state);
 		}
 
 		// check if any elevator is already at the calling person
-		for(list<Elevator*>::iterator i = elevators.begin(); i != elevators.end(); ++i)
+		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
 			// take the first elevator that is at the right floor
 			if ((*i)->GetCurrentFloor() == person->GetCurrentFloor())
 			{
 				// let the person in
-				elevatorState_[*i].busy = true;
+				elevators_[*i].busy = true;
 				openDoor(env, 0, *i);
 				return;
 			}
 		}
 
 		// if there is no elevator at the calling persons floor
-		for(list<Elevator*>::iterator i = elevators.begin(); i != elevators.end(); ++i)
+		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
 			// take the first idle elevator that goes to that floor
-			if ((*i)->HasFloor(person->GetFinalFloor()) && !elevatorState_[*i].busy)
+			if ((*i)->HasFloor(person->GetFinalFloor()) && !elevators_[*i].busy)
 			{
 				// go to the caller's floor
 				SendToFloor(env,person->GetCurrentFloor(),*i);
@@ -131,7 +131,7 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
 	// set this elevator to moving state
-	elevatorState_[ele].isMoving = false;
+	elevators_[ele].isMoving = false;
 
 	// only open doors if we're at the middle of a floor
 	if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
@@ -144,25 +144,25 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
-	elevatorState_[ele].doorState = Opening;
+	elevators_[ele].doorState = Opening;
 }
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
-	elevatorState_[ele].doorState = Opened;
+	elevators_[ele].doorState = Opened;
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
-	elevatorState_[ele].doorState = Closing;
+	elevators_[ele].doorState = Closing;
 }
 
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
-	elevatorState_[ele].doorState = Closed;
+	elevators_[ele].doorState = Closed;
 }
 
 // react to elevators movement status
@@ -172,7 +172,7 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
 	// set this elevator to moving state
-	elevatorState_[ele].isMoving = true;
+	elevators_[ele].isMoving = true;
 
 	// get current floor id we're at
 	int floor = ele->GetCurrentFloor()->GetId();
@@ -266,9 +266,9 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 {
 	// only open door if stopped in the middle of a floor
-	bool stoppedProperly = !elevatorState_[ele].isMoving && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51;
+	bool stoppedProperly = !elevators_[ele].isMoving && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51;
 	// only open door if it is already closed or currently closing
-	bool doorClosed = elevatorState_[ele].doorState == Closed || elevatorState_[ele].doorState == Closing;
+	bool doorClosed = elevators_[ele].doorState == Closed || elevators_[ele].doorState == Closing;
 
 	if (stoppedProperly && doorClosed)
 	{
@@ -279,9 +279,9 @@ void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
 {
 	// only open door if stopped in the middle of a floor
-	bool beeping = elevatorState_[ele].isBeeping;
+	bool beeping = elevators_[ele].isBeeping;
 	// only open door if it is already closed or currently closing
-	bool doorOpen = elevatorState_[ele].doorState == Opened || elevatorState_[ele].doorState == Opening;
+	bool doorOpen = elevators_[ele].doorState == Opened || elevators_[ele].doorState == Opening;
 
 	if (!beeping && doorOpen)
 	{

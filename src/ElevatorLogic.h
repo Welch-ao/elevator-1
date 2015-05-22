@@ -25,8 +25,9 @@ class ElevatorLogic: public EventHandler
 {
 
 public:
+	// here we track all the entities we work with
+	/*** ELEVATOR ***/
 	// state of an elevator door
-	// initially Closed
 	enum DoorState
 	{
 		Closing,
@@ -36,8 +37,6 @@ public:
 	};
 
 	// state of an elevator
-	// initially isMoving == false
-	// initially passengers.empty() == true
 	typedef struct
 	{
 		bool busy;
@@ -45,9 +44,11 @@ public:
 		bool isMoving;
 		set<Person*> passengers;
 		bool isBeeping;
-	} State;
+	} ElevatorState;
 
+	// default state of an elevator
 	#define DEFAULT_STATE {false,Closed,false,passengers,false}
+
 
 	ElevatorLogic();
 	virtual ~ElevatorLogic();
@@ -83,7 +84,7 @@ private:
 
 	// states of all elevators we already handled
 	// initially empty
-	map<Elevator*,State> elevatorState_;
+	map<Elevator*,ElevatorState> elevators_;
 
 	bool moved_;
 
