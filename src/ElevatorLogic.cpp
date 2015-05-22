@@ -92,10 +92,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		for(list<Elevator*>::iterator i = elevators.begin(); i != elevators.end(); ++i)
 		{
 			// take the first elevator idling and empty
-			if ((*i)->GetState() == Idle && elevatorState_[*i].passengers.empty())
+			if ((*i)->GetState() == 0 && elevatorState_[*i].passengers.empty())
 			{
 				// let the person in
-				SendToFloor(env,person->GetCurrentFloor(),ele);
+				SendToFloor(env,person->GetCurrentFloor(),*i);
 				return;
 			}
 		}
