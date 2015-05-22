@@ -194,6 +194,7 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 		// this should absolutely never happen
 		case 3:
 			state = "MALFUNCTION!!!";
+			break;
 		default:
 			break;
 	}
