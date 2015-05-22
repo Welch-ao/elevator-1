@@ -5,4 +5,4 @@ Elevator { 20 1 10 11 2 30 31 }
 Interface { 30 1 10 }
 Interface { 31 1 11 }
 Person { 50 11 10 10 5 0 }
-Person { 50 10 11 10 5 0 }
+Person { 51 10 11 10 5 0 }
