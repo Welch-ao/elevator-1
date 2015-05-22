@@ -34,7 +34,7 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
 }
 
-// What to do after recieving notification
+// What to do after receiving notification
 // TODO: clean up decision on what to do for the elevator
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
