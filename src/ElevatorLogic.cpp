@@ -43,8 +43,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// reference of a notification can only be a person
 	Person *person = static_cast<Person*>(e.GetEventHandler());
 
-	// FYI
-	std::cout << "Person " << person->GetId() << " wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
+
 	
 	// check if interface comes from inside an elevator or from a floor
 	// we see this from looking at the type of the interface's first loadable
@@ -53,6 +52,9 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// react to an interface interaction from outside the elevator
 	if (loadable->GetType() == "Elevator")
 	{
+		// FYI
+		std::cout << "Person " << person->GetId() << " (on Floor " << person->GetCurrentFloor() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
+
 		// get all elevators that stop at this interface
 		list<Elevator*> elevators;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
@@ -115,7 +117,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		Floor *target = static_cast<Floor*>(loadable);
 		
 		//FYI
-		std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
+		std::cout << "Person " << person->GetId() << " (inside Elevator " << ele->GetCurrentFloor()->GetId() << ") wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
 		
 		// close doors
 		env.SendEvent("Elevator::Close", 0, this, ele);
