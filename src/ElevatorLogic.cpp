@@ -68,7 +68,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			// empty passenger list
 			set<Person*> passengers;
 			// closed door and not moving
-			pair<Elevator*,State> state = {ele,{Closed,false,passengers}};
+			pair<Elevator*,State> state = {ele,DEFAULT_STATE};
 
 			// put it into the global map (doesn't do anything if already exists)
 			elevatorState_.insert(state);
@@ -91,10 +91,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// if there is no elevator at the calling persons floor
 		for(list<Elevator*>::iterator i = elevators.begin(); i != elevators.end(); ++i)
 		{
-			// take the first elevator idling and empty
-			if ((*i)->GetState() == 0 && elevatorState_[*i].passengers.empty())
+			// take the first idle elevator that goes to that floor
+			if ((*i)->HasFloor(person->GetFinalFloor()))
 			{
-				// let the person in
+				// go to the caller's floor
 				SendToFloor(env,person->GetCurrentFloor(),*i);
 				return;
 			}
@@ -244,6 +244,9 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 		return;
 	}
 	
+	// close door before starting
+	closeDoor(env,0,ele);
+
 	// send into right direction
 	// WARNING: delay hardcoded for time to close doors!
 	if (target->IsBelow(current))
@@ -275,3 +278,17 @@ void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 		env.SendEvent("Elevator::Open", delay, this, ele);
 	}
 }
+
+void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
+{
+	// only open door if stopped in the middle of a floor
+	bool beeping = elevatorState_[ele].isBeeping;
+	// only open door if it is already closed or currently closing
+	bool doorOpen = elevatorState_[ele].doorState == Open || elevatorState_[ele].doorState == Opening;
+
+	if (!beeping && doorOpen)
+	{
+		env.SendEvent("Elevator::Close", delay, this, ele);
+	}
+}
+

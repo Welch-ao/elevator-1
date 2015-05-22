@@ -14,7 +14,7 @@
 #include <map>
 #include <set>
 
- using namespace std;
+using namespace std;
 
 class Elevator;
 class Floor;
@@ -40,10 +40,14 @@ public:
 	// initially passengers.empty() == true
 	typedef struct
 	{
+		bool busy;
 		DoorState doorState;
 		bool isMoving;
 		set<Person*> passengers;
+		bool isBeeping;
 	} State;
+
+	#define DEFAULT_STATE {false,Closed,false,passengers,false}
 
 	ElevatorLogic();
 	virtual ~ElevatorLogic();
@@ -59,12 +63,20 @@ private:
 	
 	// get and process status info on elevator
 	void HandleMoving(Environment &env, const Event &e);
-	
+	// TODO:
+	// void HandleBeeping(Environment &env, const Event &e);
+	// void HandleBeeped(Environment &env, const Event &e);
+
+
+
 	/*** internal functions ***/
 	// send elevator to given floor
 	void SendToFloor(Environment &env, Floor*, Elevator*);
 	// open a given elevators door
 	void openDoor(Environment &env, int, Elevator*);
+	// close a given elevators door
+	void closeDoor(Environment &env, int, Elevator*);
+
 
 	// states of all elevators we already handled
 	// initially empty
