@@ -16,11 +16,9 @@
 #include "Event.h"
 #include "Environment.h"
 
-ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), moved_(false) {
-}
+ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), moved_(false) {}
 
-ElevatorLogic::~ElevatorLogic() {
-}
+ElevatorLogic::~ElevatorLogic() {}
 
 // register all the handlers
 void ElevatorLogic::Initialize(Environment &env)
@@ -37,28 +35,69 @@ void ElevatorLogic::Initialize(Environment &env)
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
 	// grab interface that sent notification
+	// notification can only come from an interface, so this cast is reasonable
 	Interface *interf = static_cast<Interface*>(e.GetSender());
+	// grab the person that interacted with the interface
+	// reference of a notification can only be a person
 	Person *person = static_cast<Person*>(e.GetEventHandler());
-	
+
 	// FYI
 	std::cout << "Person " << person->GetId() << " wants to go to floor " << person->GetFinalFloor()->GetId() << std::endl;
 	
-	// check if message really goes to elevator
-	// WARNING:Hardcoded to first entry, maybe should search for the right elevator here
+	// check if interface comes from inside an elevator or from a floor
+	// we see this from looking at the type of the interface's first loadable
 	Loadable *loadable = interf->GetLoadable(0);
 
+	// react to an interface interaction from outside the elevator
 	if (loadable->GetType() == "Elevator")
 	{
-		// do cast magic to pull out a pointer to an elevator object
-		Elevator *ele = static_cast<Elevator*>(loadable);
-		//FYI
-		std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
+		// get all elevators that stop at this interface
+		list<Elevator*> elevators;
+		for(int i = 0; i < interf->GetLoadableCount(); i++)
+		{
+			std::cout << "Test " << i << std::endl;
 
-		// let the appropriate elevator open doors
-		env.SendEvent("Elevator::Open", 0, this, ele);
+			// cast the loadables to elevator pointers
+			Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
+			std::cout << interf->GetLoadable(i)->GetType() << std::endl;
+
+			elevators.push_back(ele);
+
+			// while we're at it, add these elevators to our global map
+			// using default values for its state:
+			// empty passenger list
+			set<Person*> passengers;
+			// closed door and not moving
+			pair<Elevator*,State> state = {ele,{Closed,false,passengers}};
+
+			// put it into the global map (doesn't do anything if already exists)
+			elevatorState_.insert(state);
+			std::cout << "Test " << i << std::endl;
+
+		}
+
+		// check if any elevator is already at the calling person
+		for(list<Elevator*>::iterator i = elevators.begin(); i != elevators.end(); ++i)
+		{
+			// take the first elevator that is at the right floor
+			if ((*i)->GetCurrentFloor() == person->GetCurrentFloor())
+			{
+				// let the person in
+				openDoor(env, 0, *i);
+				return;
+			}
+		}
+
+		// if there is no elevator at the calling persons floor
+
+
+		// //FYI
+		// std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
+
+		// // let the appropriate elevator open doors
+		// env.SendEvent("Elevator::Open", 0, this, ele);
 	}
-	// WARNING: In the basic test case this other loadable is the floor, but may be anything else later
-	// here we react to an interface interaction from inside the elevator
+	// react to an interface interaction from inside the elevator
 	else
 	{
 		// get our current elevator by asking the person where it is
@@ -212,4 +251,14 @@ void ElevatorLogic::SendToFloor(Environment &env,Floor *target,Elevator *ele)
 	// pass the target floor id as data string
 	env.SendEvent("Elevator::Moving",4,ele,ele,std::to_string(target->GetId()));
 	// @see HandleMoving
+}
+
+
+void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
+{
+	// if door is already closed or currently closing, open it again
+	if (elevatorState_[ele].doorState == Closed || elevatorState_[ele].doorState == Closing)
+	{
+		env.SendEvent("Elevator::Open", delay, this, ele);
+	}
 }
