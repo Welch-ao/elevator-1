@@ -86,13 +86,16 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		for(list<Elevator*>::iterator i = elevators.begin(); i != elevators.end(); ++i)
 		{
 			// take the first idle elevator that goes to that floor
-			if ((*i)->HasFloor(person->GetFinalFloor()))
+			if ((*i)->HasFloor(person->GetFinalFloor()) && !elevatorState_[*i].busy)
 			{
 				// go to the caller's floor
 				SendToFloor(env,person->GetCurrentFloor(),*i);
 				return;
 			}
 		}
+
+		// if none can come, try again next tick
+		env.SendEvent("Interace::Notify",1,interf,person);
 
 		// //FYI
 		// std::cout << "Elevator currently at Floor " << ele->GetCurrentFloor()->GetId() << std::endl;
@@ -138,7 +141,7 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 // WARNING: Hardcoded time
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
-
+	elevatorState_[*i].busy = false;
 // 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 // 
 // 	env.SendEvent("Elevator::Close", 4, this, ele);
@@ -148,6 +151,7 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 // WARNING: Hardcoded!!!
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
+	elevatorState_[*i].busy = false;
 
 // 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 // 
@@ -269,6 +273,7 @@ void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 
 	if (stoppedProperly && doorClosed)
 	{
+		elevatorState_[ele].busy = true;
 		env.SendEvent("Elevator::Open", delay, this, ele);
 	}
 }
@@ -282,6 +287,7 @@ void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
 
 	if (!beeping && doorOpen)
 	{
+		elevatorState_[*i].busy = true;
 		env.SendEvent("Elevator::Close", delay, this, ele);
 	}
 }
