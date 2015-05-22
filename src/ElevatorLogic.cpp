@@ -26,7 +26,9 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Interface::Notify", this, &ElevatorLogic::HandleNotify);
 	env.RegisterEventHandler("Elevator::Moving", this, &ElevatorLogic::HandleMoving);
 	env.RegisterEventHandler("Elevator::Stopped", this, &ElevatorLogic::HandleStopped);
+	env.RegisterEventHandler("Elevator::Opening", this, &ElevatorLogic::HandleOpening);
 	env.RegisterEventHandler("Elevator::Opened", this, &ElevatorLogic::HandleOpened);
+	env.RegisterEventHandler("Elevator::Closing", this, &ElevatorLogic::HandleClosing);
 	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
 }
 
@@ -137,37 +139,33 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 }
 
 
-// close doors after 4 seconds
-// WARNING: Hardcoded time
-void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
+// update elevator state when something happens with the door
+void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 {
-	elevatorState_[static_cast<Elevator*>(e.GetSender())].busy = false;
-// 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
-// 
-// 	env.SendEvent("Elevator::Close", 4, this, ele);
+	Elevator* ele = static_cast<Elevator*>(e.GetSender());
+	elevatorState_[ele].doorState = Opening;
+	elevatorState_[ele].busy = true;
 }
 
-// after closing doors, go up for 4 seconds
-// WARNING: Hardcoded!!!
+void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
+{
+	Elevator* ele = static_cast<Elevator*>(e.GetSender());
+	elevatorState_[ele].doorState = Opened;
+	elevatorState_[ele].busy = false;
+}
+
+void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
+{
+	Elevator* ele = static_cast<Elevator*>(e.GetSender());
+	elevatorState_[ele].doorState = Closing;
+	elevatorState_[ele].busy = true;
+}
+
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
-	elevatorState_[static_cast<Elevator*>(e.GetSender())].busy = false;
-
-// 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
-// 
-// 	// only start moving if we're not moving yet
-// 	// and if we're not already on the highest floor
-// 	if (!moved_ && !ele->IsHighestFloor(ele->GetCurrentFloor()))
-// 	{
-// 		env.SendEvent("Elevator::Up", 0, this, ele);
-// 		env.SendEvent("Elevator::Stop", 4, this, ele);
-// 
-// 		moved_ = true;
-// 	}
-// 	else
-// 	{
-// 		std::cout << "Already on highest floor!" << std::endl;
-// 	}
+	Elevator* ele = static_cast<Elevator*>(e.GetSender());
+	elevatorState_[ele].doorState = Closed;
+	elevatorState_[ele].busy = false;
 }
 
 // react to elevators movement status
@@ -236,11 +234,11 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 	Floor *current = ele->GetCurrentFloor();
 	
 	// don't do anything if we're already there
-	if (target == current)
-	{
-		std::cout << "Target floor already reached" << std::endl;
-		return;
-	}
+	// if (target == current)
+	// {
+	// 	std::cout << "Target floor already reached" << std::endl;
+	// 	return;
+	// }
 	
 	// close door before starting
 	closeDoor(env,0,ele);
@@ -273,7 +271,6 @@ void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 
 	if (stoppedProperly && doorClosed)
 	{
-		elevatorState_[ele].busy = true;
 		env.SendEvent("Elevator::Open", delay, this, ele);
 	}
 }
@@ -283,12 +280,12 @@ void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
 	// only open door if stopped in the middle of a floor
 	bool beeping = elevatorState_[ele].isBeeping;
 	// only open door if it is already closed or currently closing
-	bool doorOpen = elevatorState_[ele].doorState == Open || elevatorState_[ele].doorState == Opening;
+	bool doorOpen = elevatorState_[ele].doorState == Opened || elevatorState_[ele].doorState == Opening;
 
 	if (!beeping && doorOpen)
 	{
-		elevatorState_[ele].busy = true;
-		env.SendEvent("Elevator::Close", delay, this, ele);
+		env.SendEvent("Elevator::Close", 0, this, ele);
+
 	}
 }
 

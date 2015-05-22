@@ -32,7 +32,7 @@ public:
 		Closing,
 		Closed,
 		Opening,
-		Open	
+		Opened	
 	};
 
 	// state of an elevator
@@ -58,7 +58,10 @@ private:
 
 	void HandleNotify(Environment &env, const Event &e);
 	void HandleStopped(Environment &env, const Event &e);
+	void HandleOpening(Environment &env, const Event &e);
 	void HandleOpened(Environment &env, const Event &e);
+	void HandleClosing(Environment &env, const Event &e);
+
 	void HandleClosed(Environment &env, const Event &e);
 	
 	// get and process status info on elevator
