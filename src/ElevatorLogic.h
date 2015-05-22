@@ -20,7 +20,7 @@
 	#define DEBUG_S(x) do \
 	 	{ \
 			if (debugging_output) \
-		  	{ std::cerr << "\tDEBU: " << x << std::endl; } \
+		  	{ std::cout << "\tDEBUG: " << x << std::endl; } \
 		} while (0)
 
 	// the #x puts "x" and is call stringizing operator
@@ -28,7 +28,7 @@
 	#define DEBUG_V(x) do \
 		{ \
 			if (debugging_output) \
-			{ std::cerr << "\tDEBU " << #x << ": " << x << std::endl; } \
+			{ std::cout << "\tDEBUG " << #x << ": " << x << std::endl; } \
 		} while (0)
 #else
 	#define DEBUG(x)

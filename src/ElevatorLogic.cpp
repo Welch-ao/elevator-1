@@ -118,6 +118,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			if ((*i)->HasFloor(person->GetFinalFloor()) && !elevators_[*i].busy)
 			{
 				// go to the caller's floor
+				elevators_[*i].busy = true;
 				SendToFloor(env,person->GetCurrentFloor(),*i);
 				return;
 			}
@@ -250,9 +251,11 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 	// find out current floor
 	Floor *current = ele->GetCurrentFloor();
 
+	DEBUG_S("Closing door");
 	// close door before starting
 	closeDoor(env,0,ele);
 
+	// TODO: check again after 3 ticks if starting movement is already appropriate
 	// send into right direction
 	// WARNING: delay hardcoded for time to close doors!
 	if (target->IsBelow(current))
@@ -288,6 +291,7 @@ void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 	{
 		env.SendEvent("Elevator::Open", delay, this, ele);
 	}
+	// TODO: If door is closing, delay everything somehow until the door is open.
 }
 
 void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
