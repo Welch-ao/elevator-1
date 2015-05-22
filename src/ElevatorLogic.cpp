@@ -55,8 +55,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		list<Elevator*> elevators;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
 		{
-			std::cout << "Test " << i << std::endl;
-
 			// cast the loadables to elevator pointers
 			Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
 			std::cout << interf->GetLoadable(i)->GetType() << std::endl;
@@ -72,8 +70,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 			// put it into the global map (doesn't do anything if already exists)
 			elevatorState_.insert(state);
-			std::cout << "Test " << i << std::endl;
-
 		}
 
 		// check if any elevator is already at the calling person
