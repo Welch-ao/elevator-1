@@ -25,8 +25,9 @@ class ElevatorLogic: public EventHandler
 {
 
 public:
+
+	// we track all the objects we interact with
 	// state of an elevator door
-	// initially Closed
 	enum DoorState
 	{
 		Closing,
@@ -36,8 +37,6 @@ public:
 	};
 
 	// state of an elevator
-	// initially isMoving == false
-	// initially passengers.empty() == true
 	typedef struct
 	{
 		bool busy;
@@ -45,9 +44,16 @@ public:
 		bool isMoving;
 		set<Person*> passengers;
 		bool isBeeping;
-	} State;
+	} ElevatorState;
 
+	// default state for an elevator
 	#define DEFAULT_STATE {false,Closed,false,passengers,false}
+
+	typedef struct
+	{
+		int timer;
+	} PersonState;
+
 
 	ElevatorLogic();
 	virtual ~ElevatorLogic();
@@ -61,11 +67,15 @@ private:
 	void HandleOpening(Environment &env, const Event &e);
 	void HandleOpened(Environment &env, const Event &e);
 	void HandleClosing(Environment &env, const Event &e);
-
 	void HandleClosed(Environment &env, const Event &e);
 	
 	// get and process status info on elevator
 	void HandleMoving(Environment &env, const Event &e);
+
+	// react to people entering and leaving
+	void HandleEntered(Environment &env, const Event &e);
+	void HandleExited(Environment &env, const Event &e);
+
 	// TODO:
 	// void HandleBeeping(Environment &env, const Event &e);
 	// void HandleBeeped(Environment &env, const Event &e);
@@ -83,8 +93,11 @@ private:
 
 	// states of all elevators we already handled
 	// initially empty
-	map<Elevator*,State> elevatorState_;
+	typedef map<Elevator*,ElevatorState> ElevatorMap;
+	ElevatorMap elevators_;
 
+	typedef map<Person*,PersonState> PersonMap;
+	PersonMap persons_;
 	bool moved_;
 
 };
