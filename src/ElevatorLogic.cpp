@@ -291,6 +291,7 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 // 	}
 	elevators_[ele].busy = false;
 	}
+
 void ElevatorLogic::openDoor(Environment &env, int delay, Elevator* ele)
 {
 	// only open door if stopped in the middle of a floor
