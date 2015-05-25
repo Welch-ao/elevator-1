@@ -102,7 +102,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
 			// take the first elevator that is at the right floor
-			if ((*i)->GetCurrentFloor() == person->GetCurrentFloor())
+			if ((*i)->GetCurrentFloor() == person->GetCurrentFloor() && elevators_[*i].busy == false)
 			{
 				// let the person in
 				elevators_[*i].busy = true;

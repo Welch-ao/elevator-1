@@ -12,3 +12,6 @@ cat: $(OBJ_FILES)
 	g++ $(CC_FLAGS) -c -o $@ $<
 
 all: cat
+
+clean:
+	rm ../obj/* ../bin/*
