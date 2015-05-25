@@ -71,7 +71,7 @@ public:
 	this way we can remove floors from the queue if they have no persons
 	 */
 	// NOTE: maybe this way we don't need a dedicated passenger list?
-	typedef list<pair<Floor*,set<Person*>> elevatorQueue;
+	typedef list<pair<Floor*,set<Person*>>> elevatorQueue;
 
 	// state of an elevator
 	typedef struct

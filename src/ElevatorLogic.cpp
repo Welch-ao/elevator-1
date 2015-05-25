@@ -100,12 +100,12 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			elevators_.insert(elevState);
 		}
 
+		Floor *personsFloor = person->GetCurrentFloor();
+		Floor *personsTarget = person->GetFinalFloor();
 		// check if any elevator is already at the calling person
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
-			personsFloor = person->GetCurrentFloor();
-			personsTarget = person->GetFinalFloor();
-			elevatorsFloor = (*i)->GetCurrentFloor();
+			Floor *elevatorsFloor = (*i)->GetCurrentFloor();
 			// take the first idle elevator that is at the right floor
 			if (elevatorsFloor == personsFloor)
 			{
@@ -117,7 +117,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 					return;
 				}
 				// or take the first one at the right floor which is going into the same direction
-				else if ((*i)->getState() == Up && personsFloor.IsBelow(personsTarget) || (*i)->getState() == Down && personsFloor.IsAbove(personsTarget))
+				else if (((*i)->GetState() == Elevator::Up && personsFloor->IsBelow(personsTarget)) || ((*i)->GetState() == Elevator::Down && personsFloor->IsAbove(personsTarget)))
 				{
 					// send it to caller's floor instead of actual target
 					// TODO: maybe we should add it to the queue
@@ -176,7 +176,7 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 	(
 		else
 		{
-			DEBUG_S("ERROR: Elevator stopped at Floor " << ele->GetCurrentFloor()->GetId() << " in illegal position! What now?")
+			DEBUG_S("ERROR: Elevator stopped at Floor " << ele->GetCurrentFloor()->GetId() << " in illegal position! What now?");
 		}
 	);
 }
@@ -363,35 +363,40 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
  * also make necessary to remove existing elements first and then reinsert them
  * since they are const
  */
-void addToQueue(Elevator *ele, Floor *target, Person *person)
+void ElevatorLogic::addToQueue(Elevator *ele, Floor *target, Person *person)
 {
 	// get the elevator's queue
 	elevatorQueue queue = elevators_[ele].queue;
+
+	// prepare values to insert
+	set<Person*> p;
+	p.insert(person);
+	pair<Floor*,set<Person*>> pp = {target,p};
+
 	// if queue empty, just add the new floor together with person to queue
 	if (queue.empty())
 	{
-		set<Person*> p.insert(person);
-		queue.insert(pair<target,p>);
+		queue.push_front(pp);
 	}
 	// otherwise find the right position to insert
 	// NOTE: queue is sorted by floors ordered from lowest to highest
-	elevatorQueue::iterator i = queue.begin()
+	elevatorQueue::iterator i = queue.begin();
 	for(; i != queue.end(); ++i)
 	{
 		// if floor is already in queue
-		if ((*i)->first == target)
+		if ((*i).first == target)
 		{
 			// only add person
-			(*i)->second.insert(person);
+			(*i).second.insert(person);
 			return;
 		}
 		// if queued floor is above given floor
-		else if ((*i)->first.IsAbove(target))
+		else if ((*i).first->IsAbove(target))
 		{
 			// the insert happens after the loop anyway
 			break;
 		}
 	}
 	// if new floor is above all others, insert at the end
-	(*i).insert(pair<target,p>);
+	queue.insert(i,pp);
 }
