@@ -356,7 +356,42 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	}
 }
 
-void addToQueue(Elevator *ele, Floor *floor, Person *person)
+// add a floor with a person who wants to go there to an elevator's queue
+/**
+ * NOTE: the queue could as well be implemented with a set and a custom
+ * comparison function that uses `IsAbove()` and `IsBelow()`, but that would
+ * also make necessary to remove existing elements first and then reinsert them
+ * since they are const
+ */
+void addToQueue(Elevator *ele, Floor *target, Person *person)
 {
-
+	// get the elevator's queue
+	elevatorQueue queue = elevators_[ele].queue;
+	// if queue empty, just add the new floor together with person to queue
+	if (queue.empty())
+	{
+		set<Person*> p.insert(person);
+		queue.insert(pair<target,p>);
+	}
+	// otherwise find the right position to insert
+	// NOTE: queue is sorted by floors ordered from lowest to highest
+	elevatorQueue::iterator i = queue.begin()
+	for(; i != queue.end(); ++i)
+	{
+		// if floor is already in queue
+		if ((*i)->first == target)
+		{
+			// only add person
+			(*i)->second.insert(person);
+			return;
+		}
+		// if queued floor is above given floor
+		else if ((*i)->first.IsAbove(target))
+		{
+			// the insert happens after the loop anyway
+			break;
+		}
+	}
+	// if new floor is above all others, insert at the end
+	(*i).insert(pair<target,p>);
 }

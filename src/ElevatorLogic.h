@@ -120,14 +120,6 @@ private:
 	void HandleEntered(Environment &env, const Event &e);
 	void HandleExited(Environment &env, const Event &e);
 
-	// TODO:
-	// collect persons on the way.
-	// implement correct usage of queue
-
-	// void HandleBeeping(Environment &env, const Event &e);
-	// void HandleBeeped(Environment &env, const Event &e);
-
-
 	/*** internal functions ***/
 	// send elevator to given floor
 	void SendToFloor(Environment &env, Floor*, Elevator*);
