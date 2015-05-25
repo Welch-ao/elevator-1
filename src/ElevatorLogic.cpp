@@ -91,6 +91,8 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			// using default values for its state:
 			// empty passenger list
 			set<Person*> passengers;
+			// empty queue
+			elevatorQueue queue;
 			// closed door and not moving
 			pair<Elevator*,ElevatorState> elevState = {ele,ELEV_DEFAULT_STATE};
 
@@ -101,14 +103,29 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// check if any elevator is already at the calling person
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
-			// take the first elevator that is at the right floor
-			if ((*i)->GetCurrentFloor() == person->GetCurrentFloor() && elevators_[*i].busy == false)
+			personsFloor = person->GetCurrentFloor();
+			personsTarget = person->GetFinalFloor();
+			elevatorsFloor = (*i)->GetCurrentFloor();
+			// take the first idle elevator that is at the right floor
+			if (elevatorsFloor == personsFloor)
 			{
-				// let the person in
-				elevators_[*i].busy = true;
-				openDoor(env, 0, *i);
-				return;
+				if (!elevators_[*i].busy)
+				{
+					// let the person in
+					elevators_[*i].busy = true;
+					openDoor(env, 0, *i);
+					return;
+				}
+				// or take the first one at the right floor which is going into the same direction
+				else if ((*i)->getState() == Up && personsFloor.IsBelow(personsTarget) || (*i)->getState() == Down && personsFloor.IsAbove(personsTarget))
+				{
+					// send it to caller's floor instead of actual target
+					// TODO: maybe we should add it to the queue
+					SendToFloor(env,person->GetCurrentFloor(),*i);
+					return;
+				}
 			}
+
 		}
 
 		// if there is no elevator at the calling persons floor
@@ -119,7 +136,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			{
 				// go to the caller's floor
 				elevators_[*i].busy = true;
-				SendToFloor(env,person->GetCurrentFloor(),*i);
+				SendToFloor(env,personsFloor,*i);
 				return;
 			}
 		}
@@ -135,6 +152,8 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// get target from the interface input
 		Floor *target = static_cast<Floor*>(loadable);
 
+		// add target to queue
+		addToQueue(ele,target,person);
 		// send elevator to where the person wants to go
 		SendToFloor(env,target,ele);
 	}
@@ -153,6 +172,13 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 	{
 		env.SendEvent("Elevator::Open", 0, this, ele);
 	}
+	DEBUG
+	(
+		else
+		{
+			DEBUG_S("ERROR: Elevator stopped at Floor " << ele->GetCurrentFloor()->GetId() << " in illegal position! What now?")
+		}
+	);
 }
 
 // update elevator state when something happens with the door
@@ -328,4 +354,9 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	{
 		elevators_[ele].busy = false;
 	}
+}
+
+void addToQueue(Elevator *ele, Floor *floor, Person *person)
+{
+
 }

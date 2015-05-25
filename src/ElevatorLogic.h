@@ -65,6 +65,14 @@ public:
 		Opened
 	};
 
+	/*
+	this is one evil type...
+	we want to queue floors and together with the persons going there
+	this way we can remove floors from the queue if they have no persons
+	 */
+	// NOTE: maybe this way we don't need a dedicated passenger list?
+	typedef list<pair<Floor*,set<Person*>> elevatorQueue;
+
 	// state of an elevator
 	typedef struct
 	{
@@ -72,11 +80,12 @@ public:
 		DoorState doorState;
 		bool isMoving;
 		set<Person*> passengers;
+		elevatorQueue queue;
 		bool isBeeping;
 	} ElevatorState;
 
 	// default state of an elevator
-	#define ELEV_DEFAULT_STATE {false,Closed,false,passengers,false}
+	#define ELEV_DEFAULT_STATE {false,Closed,false,passengers,queue,false}
 
 	/*** PERSON ***/
 
@@ -113,6 +122,7 @@ private:
 
 	// TODO:
 	// collect persons on the way.
+	// implement correct usage of queue
 
 	// void HandleBeeping(Environment &env, const Event &e);
 	// void HandleBeeped(Environment &env, const Event &e);
@@ -125,7 +135,9 @@ private:
 	void openDoor(Environment &env, int, Elevator*);
 	// close a given elevators door
 	void closeDoor(Environment &env, int, Elevator*);
-
+	// add a floor and a person which wants to go there
+	// to an elevators queue
+	void addToQueue(Elevator*,Floor*,Person*);
 
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
