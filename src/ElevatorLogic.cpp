@@ -79,7 +79,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			}
 		);
 
-		// get all elevators that stop at this interface
+		// get all elevators that stop at this floor
 		list<Elevator*> elevs;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
 		{
@@ -117,8 +117,13 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 					return;
 				}
 				// or take the first one at the right floor which is going into the same direction
-				else if (((*i)->GetState() == Elevator::Up && personsFloor->IsBelow(personsTarget)) || ((*i)->GetState() == Elevator::Down && personsFloor->IsAbove(personsTarget)))
+				else if
+				(
+					true //((*i)->GetState() == Elevator::Down && personsFloor->IsBelow(personsTarget)) ||
+					//((*i)->GetState() == Elevator::Up && personsFloor->IsAbove(personsTarget))
+				)
 				{
+					DEBUG_S("Picking up Person " << person->GetId() << " at Floor " << personsFloor->GetId());
 					// send it to caller's floor instead of actual target
 					// TODO: maybe we should add it to the queue
 					SendToFloor(env,person->GetCurrentFloor(),*i);
@@ -212,8 +217,16 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 	// NOTE: we assume the sender of a movement event is always an elevator
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	// set this elevator to moving state
-	elevators_[ele].isMoving = true;
+	if(ele->GetState() != Elevator::Idle && ele->GetState() != Elevator::Malfunction)
+	{
+		// set this elevator to moving state
+		elevators_[ele].isMoving = true;
+	}
+	else
+	{
+		return;
+	}
+
 
 	// get current floor id we're at
 	int floor = ele->GetCurrentFloor()->GetId();
@@ -277,20 +290,32 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 	// find out current floor
 	Floor *current = ele->GetCurrentFloor();
 
-	DEBUG_S("Closing door");
 	// close door before starting
 	closeDoor(env,0,ele);
 
 	// TODO: check again after 3 ticks if starting movement is already appropriate
-	// send into right direction
-	// WARNING: delay hardcoded for time to close doors!
-	if (target->IsBelow(current))
+
+	// adjust delay depending on door state
+	// TODO: make it more elegant
+	int delay;
+	if (elevators_[ele].doorState == Closed)
 	{
-		env.SendEvent("Elevator::Up",3,this,ele);
+		delay = 0;
 	}
 	else
 	{
-		env.SendEvent("Elevator::Down",3,this,ele);
+		delay = 3;
+	}
+	// send into right direction
+	if (target->IsBelow(current))
+	{
+		DEBUG_S("Target Floor " << target->GetId() << " is above elevator's current floor " << ele->GetCurrentFloor()->GetId());
+		env.SendEvent("Elevator::Up",delay,this,ele);
+	}
+	else
+	{
+		DEBUG_S("Target Floor " << target->GetId() << " is below elevator's current floor " << ele->GetCurrentFloor()->GetId());
+		env.SendEvent("Elevator::Down",delay,this,ele);
 	}
 
 	/*
@@ -329,6 +354,7 @@ void ElevatorLogic::closeDoor(Environment &env, int delay, Elevator* ele)
 
 	if (!beeping && doorOpen)
 	{
+		DEBUG_S("Closing door");
 		env.SendEvent("Elevator::Close", 0, this, ele);
 	}
 }
