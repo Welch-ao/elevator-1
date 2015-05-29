@@ -98,13 +98,37 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			elevators_.insert(elevState);
 		}
 
-		// check if any elevator is already at the calling person
 		Floor *personsFloor = person->GetCurrentFloor();
+
+		// check if any elevator is already at the calling person
+		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
+		{
+			// check if space left
+			if (getCapacity(*i) - person->GetWeight() >= 0 && (*i)->GetCurrentFloor() == personsFloor)
+			{
+				DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
+				SendToFloor(env,personsFloor,*i);
+				return;
+			}
+			DEBUG
+			(
+				else if (getCapacity(*i) - person->GetWeight() < 0)
+				{
+					DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
+				}
+				else if ((*i)->GetCurrentFloor() != personsFloor)
+				{
+					DEBUG_S("Elevator " << (*i)->GetId() << " is somewhere else.");
+				}
+			);
+		}
+		// check any other elevators
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
 			// check if space left
 			if (getCapacity(*i) - person->GetWeight() >= 0 && !elevators_[*i].busy)
 			{
+				DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
 				SendToFloor(env,personsFloor,*i);
 				return;
 			}
@@ -119,9 +143,11 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 					DEBUG_S("Elevator " << (*i)->GetId() << " is busy.");
 				}
 			);
-		// if none can come, try again next tick
 		}
+		// if none can come, try again next tick
 		env.SendEvent("Interface::Notify",1,interf,person);
+		DEBUG_S("No free elevator found, trying again later.");
+
 	}
 	// react to an interface interaction from inside the elevator
 	else
@@ -363,6 +389,7 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 
 	elevators_[ele].passengers.insert(person);
 	elevators_[ele].busy = false;
+	closeDoor(env,ele);
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
