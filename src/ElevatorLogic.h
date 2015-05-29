@@ -65,13 +65,7 @@ public:
 		Opened
 	};
 
-	/*
-	this is one evil type...
-	we want to queue floors and together with the persons going there
-	this way we can remove floors from the queue if they have no persons
-	 */
-	// NOTE: maybe this way we don't need a dedicated passenger list?
-	typedef list<pair<Floor*,set<Person*>>> elevatorQueue;
+	typedef list<Floor*> elevatorQueue;
 
 	// state of an elevator
 	typedef struct
@@ -86,17 +80,6 @@ public:
 
 	// default state of an elevator
 	#define ELEV_DEFAULT_STATE {false,Closed,false,passengers,queue,false}
-
-	/*** PERSON ***/
-
-	// state of a person
-	typedef struct
-	{
-		int timer;
-	} PersonState;
-
-	// default state of a person
-	#define PERS_DEFAULT_STATE(timer) {timer}
 
 	ElevatorLogic();
 	virtual ~ElevatorLogic();
@@ -115,8 +98,13 @@ private:
 
 	// get and process status info on elevator
 	void HandleMoving(Environment &env, const Event &e);
+	void HandleUp(Environment &env, const Event &e);
+	void HandleDown(Environment &env, const Event &e);
 
 	// handle entering and exiting persons
+	void HandleEntering(Environment &env, const Event &e);
+	void HandleExiting(Environment &env, const Event &e);
+
 	void HandleEntered(Environment &env, const Event &e);
 	void HandleExited(Environment &env, const Event &e);
 
@@ -124,18 +112,18 @@ private:
 	// send elevator to given floor
 	void SendToFloor(Environment &env, Floor*, Elevator*);
 	// open a given elevators door
-	void openDoor(Environment &env, int, Elevator*);
+	void openDoor(Environment &env, Elevator*);
 	// close a given elevators door
-	void closeDoor(Environment &env, int, Elevator*);
+	void closeDoor(Environment &env, Elevator*);
 	// add a floor and a person which wants to go there
 	// to an elevators queue
-	void addToQueue(Elevator*,Floor*,Person*);
-
+	void addToQueue(Elevator*,Floor*);
+	// get free space of given elevator
+	int getCapacity(Elevator* const);
+	// check if elevator is on the way to given floor
+	bool onTheWay(Elevator*,Floor*);
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
-
-	// states of all persons we know
-	map<Person*,PersonState> persons_;
 };
 
 #endif /* ELEVATORLOGIC_H_ */

@@ -1,13 +1,9 @@
 # TODO
-- if moving at a floor we are called to, stop at middle
-- simplify queue -> only floors
-	- maybe as ordered set with comparison by IsBelow/IsAbove
-- collect persons on the way
-	- tests: collect, pickup
-- implement correct usage of queue
-	- removeFromQueue (when last person going to queued floor leaves elevator)
-	- check where to go after starting movement using queue
+- check where to go after starting movement using queue
 - implement correct behavior when beeping
 	- void HandleBeeping(Environment &env, const Event &e);
 	- void HandleBeeped(Environment &env, const Event &e);
 - check weight limits
+
+# MAYBE
+- queue as ordered set with comparison by IsBelow/IsAbove
