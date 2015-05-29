@@ -122,6 +122,30 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				}
 			);
 		}
+
+		// check elevators with empty queues
+		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
+		{
+			// check if space left
+			if (getCapacity(*i) - person->GetWeight() >= 0 && elevators_[*i].queue.empty())
+			{
+				DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
+				SendToFloor(env,personsFloor,*i);
+				return;
+			}
+			DEBUG
+			(
+				else if (getCapacity(*i) - person->GetWeight() < 0)
+				{
+					DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
+				}
+				else if (!elevators_[*i].queue.empty())
+				{
+					DEBUG_S("Elevator " << (*i)->GetId() << " has items in queue.");
+				}
+			);
+		}
+
 		// check any other elevators
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{

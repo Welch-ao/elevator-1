@@ -1,4 +1,5 @@
 # TODO
+- simplify prioritizing elevator calls
 - check where to go next in queue
 - implement correct behavior when beeping
 	- void HandleBeeping(Environment &env, const Event &e);
