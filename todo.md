@@ -1,4 +1,7 @@
 # TODO
+- pass tests:
+	-2lazy (prioritize queue by waiting time)
+	-2speed (prioiritize elevator call by speed and distance)
 - simplify prioritizing elevator calls
 - check where to go next in queue
 - implement correct behavior when beeping

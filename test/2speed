@@ -1,0 +1,16 @@
+Floor { 12 11 0 4 1 40 }
+Floor { 11 10 12 4 1 41 }
+Floor { 10 0 11 4 1 40 }
+
+Interface { 40 2 20 21 }
+UpDownButton { 41 2 20 21 }
+
+Elevator { 20 1 10 10 3 30 31 32 }
+Elevator { 21 2 10 10 3 30 31 32 }
+
+Interface { 30 1 10 }
+Interface { 31 1 11 }
+Interface { 32 1 12 }
+
+Person { 50 11 10 10 5 0 }
+Person { 51 12 10 10 5 0 }
