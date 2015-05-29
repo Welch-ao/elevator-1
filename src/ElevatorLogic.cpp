@@ -100,11 +100,8 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 		// check if any elevator is already at the calling person
 		Floor *personsFloor = person->GetCurrentFloor();
-		Floor *personsTarget = person->GetFinalFloor();
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
-			Floor *elevatorsFloor = (*i)->GetCurrentFloor();
-
 			// check if space left
 			if (getCapacity(*i) - person->GetWeight() >= 0 && !elevators_[*i].busy)
 			{
@@ -388,14 +385,12 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	Person *person = static_cast<Person*>(e.GetSender());
 	elevators_[ele].busy = true;
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	Person *person = static_cast<Person*>(e.GetSender());
 	elevators_[ele].busy = true;
 }
 
