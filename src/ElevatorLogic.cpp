@@ -369,17 +369,11 @@ void ElevatorLogic::closeDoor(Environment &env, Elevator* ele)
 	// only open door if it is already closed or currently closing
 	bool doorOpen = elevators_[ele].doorState == Opened || elevators_[ele].doorState == Opening;
 	// check if someone is entering or exiting
-	bool busy = elevators_[ele].busy;
-	if (!beeping && doorOpen && !busy)
+	if (!beeping && doorOpen)
 	{
 		DEBUG_S("Closing door");
 		env.SendEvent("Elevator::Close", 0, this, ele);
 		elevators_[ele].doorState = Closing;
-	}
-	else
-	{
-		DEBUG_S("Door blocked, trying again...");
-		env.SendEvent("Elevator::Close", 1, this, ele);
 	}
 }
 
@@ -390,7 +384,6 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 
 	elevators_[ele].passengers.insert(person);
 	elevators_[ele].busy = false;
-	closeDoor(env,ele);
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
@@ -414,12 +407,14 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	elevators_[ele].busy = true;
+	closeDoor(env,ele);
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	elevators_[ele].busy = true;
+	closeDoor(env,ele);
 }
 
 
