@@ -336,7 +336,7 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 		delay = 3;
 	}
 	// send into right direction
-	if (target->IsBelow(current))
+	if (elevators_[ele].queue.front()->IsBelow(current))
 	{
 		DEBUG_S("Target Floor " << target->GetId() << " is above elevator's current floor " << ele->GetCurrentFloor()->GetId());
 		env.SendEvent("Elevator::Up",delay,this,ele);
@@ -374,6 +374,7 @@ void ElevatorLogic::closeDoor(Environment &env, Elevator* ele)
 	{
 		DEBUG_S("Closing door");
 		env.SendEvent("Elevator::Close", 0, this, ele);
+		elevators_[ele].doorState = Closing;
 	}
 	else
 	{
@@ -432,7 +433,7 @@ void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 	// get the elevator's queue
 	elevatorQueue &q = elevators_[ele].queue;
 
-	// if queue empty, just add the new floor together with person to queue
+	/*// if queue empty, just add the new floor together with person to queue
 	if (q.empty())
 	{
 		q.push_front(target);
@@ -460,7 +461,10 @@ void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 		}
 	}
 	// if new floor is above all others, insert at the end
-	q.insert(i,target);
+	q.insert(i,target);*/
+
+	// try just queueing floors FIFO style
+	q.push_back(target);
 	DEBUG_S("Added floor " << target->GetId() << " to queue of Elevator " << ele->GetId());
 }
 
