@@ -99,29 +99,25 @@ public:
 
 private:
 
+	/*** event handlers ***/
 	void HandleNotify(Environment &env, const Event &e);
 	void HandleStopped(Environment &env, const Event &e);
 	void HandleOpening(Environment &env, const Event &e);
 	void HandleOpened(Environment &env, const Event &e);
 	void HandleClosing(Environment &env, const Event &e);
-
 	void HandleClosed(Environment &env, const Event &e);
-
 	// get and process status info on elevator
 	void HandleMoving(Environment &env, const Event &e);
 	void HandleUp(Environment &env, const Event &e);
 	void HandleDown(Environment &env, const Event &e);
-
 	// handle entering and exiting persons
 	void HandleEntering(Environment &env, const Event &e);
 	void HandleExiting(Environment &env, const Event &e);
-
 	void HandleEntered(Environment &env, const Event &e);
 	void HandleExited(Environment &env, const Event &e);
 
-	void HandleAll(Environment &env, const Event &e);
 
-	/*** internal functions ***/
+	/*** helper functions ***/
 	// send elevator to given floor
 	void SendToFloor(Environment &env, Floor*, Elevator*);
 	// open a given elevators door
@@ -135,26 +131,39 @@ private:
 	int getCapacity(Elevator* const);
 	// check if elevator is on the way to given floor
 	bool onTheWay(Elevator*,Floor*);
+	// calculate the distance from one floor's relative position to a different floor stop
+	double getDistance(Floor*,double,Floor*);
+	// calculate travel time for given elevator from one floor to the other
+	int getTravelTime(Elevator*,Floor*,Floor*);
+
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
 
-	// collect all the test data
+
+
+	DEBUG
+	(// debugging stuff
 	set<Floor*> allFloors;
-	// person with start floor and start time
-	map<Person*,pair<int,int>> allPersons;
-	// elevator with starting floor
-	map<Elevator*,int> allElevators;
+	string eventlog;
 	set<Interface*> allInterfaces;
-	bool blank;
 	string showFloors();
 	string showPersons();
 	string showElevators();
 	string showInterfaces();
 	int tick;
+	);
+
+	// we cant put that into DEBUG() since there are commas...
+	// person with start floor and start time
+	map<Person*,pair<int,int>> allPersons;
+	// elevator with starting floor
+	map<Elevator*,int> allElevators;
+	// persons with their deadlines
 	std::map<Person*,int> deadlines_;
-	string eventlog;
+
 	DEBUG
 	(
+		void HandleAll(Environment &env, const Event &e);
 		void checkTimer(Environment&, Person *person);
 		void collectInfo(Environment&, Person*);
 		void logEvent(Environment&, const Event&);

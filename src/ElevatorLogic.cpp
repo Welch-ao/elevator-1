@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cmath>
 
 #include "Interface.h"
 #include "Person.h"
@@ -17,7 +18,7 @@
 #include "Event.h"
 #include "Environment.h"
 
-ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), blank(true), tick(0) {}
+ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), tick(0) {}
 
 ElevatorLogic::~ElevatorLogic() {}
 
@@ -41,22 +42,6 @@ void ElevatorLogic::Initialize(Environment &env)
 }
 
 
-void ElevatorLogic::HandleAll(Environment &env, const Event &e)
-{
-	DEBUG
-	(
-	logEvent(env, e);
-	if (env.GetClock() != tick)
-	{
-		for (auto const &p : allPersons)
-		{
-			checkTimer(env, p.first);
-		}
-		tick = env.GetClock();
-	}
-	);
-}
-
 // What to do after recieving notification
 // TODO: clean up decision on what to do for the elevator
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
@@ -68,7 +53,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// reference of a notification can only be a person
 	Person *person = static_cast<Person*>(e.GetEventHandler());
 
-
+	// play NSA on the test cases
 	DEBUG(collectInfo(env, person););
 
 	DEBUG_S
@@ -85,6 +70,17 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// react to an interface interaction from outside the elevator
 	if (loadable->GetType() == "Elevator")
 	{
+		Floor *personsFloor = person->GetCurrentFloor();
+
+		// get all elevators that stop at this floor
+		struct comp
+		{
+			bool operator() (const Elevator *a, const Elevator *b) const
+			{
+				return getTravelTime(a,personsFloor,a->GetCurrentFloor()) < getTravelTime(b,personsFloor,b->GetCurrentFloor());
+			}
+		};
+
 		// get all elevators that stop at this floor
 		list<Elevator*> elevs;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
@@ -106,7 +102,20 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			elevators_.insert(elevState);
 		}
 
-		Floor *personsFloor = person->GetCurrentFloor();
+
+		// get elevator with shortest travel time to caller
+		pair<Elevator*,int> shortest = make_pair((*elevs.begin()),999);
+		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
+		{
+			// check if space left
+			if (getTravelTime((*i),(*i)->GetCurrentFloor(),personsFloor) < shortest.second)
+			{
+				shortest = make_pair(*i,getTravelTime((*i),(*i)->GetCurrentFloor(),personsFloor));
+			}
+		}
+		DEBUG_S("Using elevator " << shortest.first->GetId() << " at floor " << shortest.first->GetCurrentFloor()->GetId());
+		SendToFloor(env,personsFloor,shortest.first);
+		return;
 
 		// check if any elevator is already at the calling person
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
@@ -306,7 +315,9 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 		);
 		if (elevators_[ele].doorState != Closed)
 		{
-			DEBUG_S("OMAGAHHH OPEN DOOOOR!!!");
+			ostringstream result;
+			result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetCurrentFloor()->GetId() << " moved with open door!<br>\n" ;
+			throw std::runtime_error(result.str());
 		}
 	);
 
@@ -533,10 +544,59 @@ bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
 	);
 }
 
+double ElevatorLogic::getDistance(Floor *a, double pos, Floor *b)
+{
+	// if relative to one floor, return distance from the middle
+	if (a == b)
+	{
+		return abs(a->GetHeight()/2 - a->GetHeight()*pos);
+	}
+	// walk through all floors until we reach destination
+	else if (a->IsBelow(b))
+	{
+		double distance = a->GetHeight()*pos;
+		while (a->GetBelow() != b)
+		{
+			a = a->GetBelow();
+			distance += a->GetHeight();
+		}
+		distance += b->GetHeight()/2;
+		return distance;
+	}
+	else
+	{
+		double distance = a->GetHeight() - a->GetHeight()*pos;
+		while (a->GetAbove() != b)
+		{
+			a = a->GetAbove();
+			distance += a->GetHeight();
+		}
+		distance += b->GetHeight()/2;
+		return distance;
+	}
+}
+
+int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b)
+{
+	return ceil(getDistance(a,ele->GetPosition(),b)/ele->GetSpeed());
+}
 
 
 DEBUG
 (
+	void ElevatorLogic::HandleAll(Environment &env, const Event &e)
+	{
+		logEvent(env, e);
+		if (env.GetClock() != tick)
+		{
+			for (auto const &p : allPersons)
+			{
+				checkTimer(env, p.first);
+			}
+			tick = env.GetClock();
+		}
+	}
+
 	string ElevatorLogic::showFloors()
 	{
 		ostringstream oss;
@@ -647,7 +707,7 @@ DEBUG
 			else
 			{
 				ostringstream result;
-				result << "[" << env.GetClock() << "] Person " << person->GetId() << " GIVES UP!<br>\n" << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog;
+				result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Person " << person->GetId() << " gave up!<br>\n";
 				throw std::runtime_error(result.str());
 			}
 		}
@@ -697,7 +757,7 @@ DEBUG
 			}
 			f = f->GetAbove();
 		}
-		while (f->GetAbove() != nullptr);
+		while (f != nullptr);
 	}
 
 	void ElevatorLogic::logEvent(Environment &env, const Event &e)
