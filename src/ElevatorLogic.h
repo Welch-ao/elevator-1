@@ -19,8 +19,17 @@
 	#define DEBUG(x) x
 	#define DEBUG_S(x) do \
 	 	{ \
+	 		ostringstream out; \
 			if (debugging_output) \
-		  	{ std::cout << "\tDEBUG: " << x << std::endl; } \
+		  	{ std::cout << "\tDEBUG: " << x << std::endl; \
+		  	  out << "\tDEBUG: " << x << "<br>" << std::endl; } \
+		  	eventlog.append(out.str()); \
+		} while (0)
+
+	#define DEBUG_E(x) do \
+	 	{ \
+			if (debugging_output) \
+		  	{ std::cerr << "\tERROR: " << x << std::endl; } \
 		} while (0)
 
 	// the #x puts "x" and is call stringizing operator
@@ -33,6 +42,7 @@
 #else
 	#define DEBUG(x)
 	#define DEBUG_S(x)
+	#define DEBUG_E(x)
 	#define DEBUG_V(x)
 #endif
 
@@ -54,6 +64,7 @@ class ElevatorLogic: public EventHandler
 {
 
 public:
+
 	// here we track all the entities we work with
 	/*** ELEVATOR ***/
 	// state of an elevator door
@@ -108,6 +119,8 @@ private:
 	void HandleEntered(Environment &env, const Event &e);
 	void HandleExited(Environment &env, const Event &e);
 
+	void HandleAll(Environment &env, const Event &e);
+
 	/*** internal functions ***/
 	// send elevator to given floor
 	void SendToFloor(Environment &env, Floor*, Elevator*);
@@ -124,6 +137,29 @@ private:
 	bool onTheWay(Elevator*,Floor*);
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
+
+	// collect all the test data
+	set<Floor*> allFloors;
+	// person with start floor and start time
+	map<Person*,pair<int,int>> allPersons;
+	// elevator with starting floor
+	map<Elevator*,int> allElevators;
+	set<Interface*> allInterfaces;
+	bool blank;
+	string showFloors();
+	string showPersons();
+	string showElevators();
+	string showInterfaces();
+	int tick;
+	std::map<Person*,int> deadlines_;
+	string eventlog;
+	DEBUG
+	(
+		void checkTimer(Environment&, Person *person);
+		void collectInfo(Environment&, Person*);
+		void logEvent(Environment&, const Event&);
+	);
+
 };
 
 #endif /* ELEVATORLOGIC_H_ */

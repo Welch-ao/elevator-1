@@ -8,6 +8,7 @@
 #include "ElevatorLogic.h"
 
 #include <iostream>
+#include <sstream>
 
 #include "Interface.h"
 #include "Person.h"
@@ -16,7 +17,7 @@
 #include "Event.h"
 #include "Environment.h"
 
-ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic") {}
+ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), blank(true), tick(0) {}
 
 ElevatorLogic::~ElevatorLogic() {}
 
@@ -36,6 +37,24 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Person::Exited",		this, &ElevatorLogic::HandleExited);
 	env.RegisterEventHandler("Person::Entering",	this, &ElevatorLogic::HandleEntering);
 	env.RegisterEventHandler("Person::Exiting",		this, &ElevatorLogic::HandleExiting);
+	env.RegisterEventHandler("Environment::All",	this, &ElevatorLogic::HandleAll);
+}
+
+
+void ElevatorLogic::HandleAll(Environment &env, const Event &e)
+{
+	DEBUG
+	(
+	logEvent(env, e);
+	if (env.GetClock() != tick)
+	{
+		for (auto const &p : allPersons)
+		{
+			checkTimer(env, p.first);
+		}
+		tick = env.GetClock();
+	}
+	);
 }
 
 // What to do after recieving notification
@@ -48,6 +67,9 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// grab the person that interacted with the interface
 	// reference of a notification can only be a person
 	Person *person = static_cast<Person*>(e.GetEventHandler());
+
+
+	DEBUG(collectInfo(env, person););
 
 	DEBUG_S
 	(
@@ -63,20 +85,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	// react to an interface interaction from outside the elevator
 	if (loadable->GetType() == "Elevator")
 	{
-		DEBUG
-		(
-			// get person's timer
-			int timer = person->GetGiveUpTime() - env.GetClock();
-			if (timer > 0)
-			{
-				DEBUG_S("Person " << person->GetId() << " waits " << timer);
-			}
-			else if (timer == 0)
-			{
-				DEBUG_S("Person " << person->GetId() << " GIVES UP!");
-			}
-		);
-
 		// get all elevators that stop at this floor
 		list<Elevator*> elevs;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
@@ -118,7 +126,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				}
 				else if ((*i)->GetCurrentFloor() != personsFloor)
 				{
-					DEBUG_S("Elevator " << (*i)->GetId() << " is somewhere else.");
+					DEBUG_S("Elevator " << (*i)->GetId() << " is at floor " << (*i)->GetCurrentFloor()->GetId());
 				}
 			);
 		}
@@ -126,7 +134,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// check elevators with empty queues
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
-			DEBUG_S("What about elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
 			// check if space left
 			if (getCapacity(*i) - person->GetWeight() >= 0 && elevators_[*i].queue.empty())
 			{
@@ -235,6 +242,12 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevators_[ele].doorState = Closed;
+	// get to the next floor in queue as quickly as possible
+	if (!elevators_[ele].queue.empty())
+	{
+		SendToFloor(env,elevators_[ele].queue.front(),ele);
+	}
+
 }
 
 void ElevatorLogic::HandleUp(Environment &env, const Event &e)
@@ -304,19 +317,15 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 	elevatorQueue::iterator i = queue.begin();
 	if (queue.empty())
 	{DEBUG_S("no floor in queue");}
-	// for(; i != queue.end(); ++i)
-	// {
-	// 	if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
-	// 	{
-	// 		env.SendEvent("Elevator::Stop",0,ele,ele);
-	// 		return;
-	// 	}
-	// }
-	if (elevators_[ele].queue.front() == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+	for(; i != queue.end(); ++i)
+	{
+		if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 		{
 			env.SendEvent("Elevator::Stop",0,ele,ele);
 			return;
 		}
+	}
+
 	// otherwise continue movement and report back later
 	env.SendEvent("Elevator::Moving",1,ele,ele);
 }
@@ -367,12 +376,12 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 	// send into right direction
 	if (elevators_[ele].queue.front()->IsBelow(current))
 	{
-		DEBUG_S("Target Floor " << target->GetId() << " is above elevator's current floor " << ele->GetCurrentFloor()->GetId());
+		DEBUG_S("Target floor " << target->GetId() << " is above elevator's current floor " << ele->GetCurrentFloor()->GetId());
 		env.SendEvent("Elevator::Up",delay,this,ele);
 	}
 	else
 	{
-		DEBUG_S("Target Floor " << target->GetId() << " is below elevator's current floor " << ele->GetCurrentFloor()->GetId());
+		DEBUG_S("Target floor " << target->GetId() << " is below elevator's current floor " << ele->GetCurrentFloor()->GetId());
 		env.SendEvent("Elevator::Down",delay,this,ele);
 	}
 }
@@ -421,7 +430,6 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 
 	elevators_[ele].passengers.erase(person);
-
 	elevators_[ele].busy = false;
 
 	// after someone left, go to lowest floor in queue
@@ -436,6 +444,12 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	elevators_[ele].busy = true;
+
+	// do not track deadlines anymore
+	Person *person = static_cast<Person*>(e.GetSender());
+	DEBUG_S("Person " << person->GetId() << " waited " << deadlines_[person]);
+
+	deadlines_.erase(deadlines_.find(person));
 	closeDoor(env,ele);
 }
 
@@ -443,6 +457,7 @@ void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	elevators_[ele].busy = true;
+
 	closeDoor(env,ele);
 }
 
@@ -517,3 +532,181 @@ bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
 		(ele->GetState() == Elevator::Down && ele->GetCurrentFloor()->IsBelow(target))
 	);
 }
+
+
+
+DEBUG
+(
+	string ElevatorLogic::showFloors()
+	{
+		ostringstream oss;
+		for (Floor *f : allFloors)
+		{
+			oss << "Floor { " <<
+			// ID
+			f->GetId() << " " <<
+			// floor below
+			(f->GetBelow() == nullptr ? 0 : f->GetBelow()->GetId()) << " " <<
+			// floor above
+			(f->GetAbove() == nullptr ? 0 : f->GetAbove()->GetId()) << " " <<
+			// number of interfaces
+			f->GetHeight() << " " << f->GetInterfaceCount();
+			// list of interfaces
+			for (int i = 0; i < f->GetInterfaceCount(); i++)
+			{
+				oss << " " << f->GetInterface(i)->GetId();
+			}
+			oss << " }<br>" << endl;
+		}
+		return oss.str();
+	}
+
+	string ElevatorLogic::showPersons()
+	{
+		ostringstream oss;
+		for (auto const &p : allPersons)
+		{
+			oss << "Person { " <<
+			// ID
+			p.first->GetId() << " " <<
+			// start floor
+			p.second.first << " " <<
+			// target floor
+			p.first->GetFinalFloor()->GetId() << " " <<
+			// giveup time
+			p.first->GetGiveUpTime() << " " <<
+			// weight
+			p.first->GetWeight() << " " <<
+			// start time
+			p.second.second <<
+			" }<br>" << endl;
+		}
+		return oss.str();
+	}
+
+	string ElevatorLogic::showElevators()
+	{
+		ostringstream oss;
+		for (auto const &ele : allElevators)
+		{
+			oss << "Elevator { " <<
+			// ID
+			ele.first->GetId() << " " <<
+			// speed
+			ele.first->GetSpeed() << " " <<
+			// max load
+			ele.first->GetMaxLoad() << " " <<
+			// starting floor
+			ele.second << " " <<
+			// number of interfaces
+			ele.first->GetInterfaceCount();
+			// list of interfaces
+			for (int i = 0; i < ele.first->GetInterfaceCount(); i++)
+			{
+				oss << " " << ele.first->GetInterface(i)->GetId();
+			}
+			oss << " }<br>" << endl;
+		}
+		return oss.str();
+	}
+
+	string ElevatorLogic::showInterfaces()
+	{
+		ostringstream oss;
+		for (auto const &intf : allInterfaces)
+		{
+			// interfaces only have one target each
+			oss << "Interface { " <<
+			// ID
+			intf->GetId() << " " <<
+			// number loadables
+			intf->GetLoadableCount();
+			// list of interfaces
+			for (int i = 0; i < intf->GetLoadableCount(); i++)
+			{
+				oss << " " << intf->GetLoadable(i)->GetId();
+			}
+			oss << " }<br>" << endl;
+		}
+		return oss.str();
+	}
+
+	void ElevatorLogic::checkTimer(Environment &env, Person *person)
+	{
+		// get person's timer
+		if (deadlines_.find(person) != deadlines_.end())
+		{
+			// update deadline
+			deadlines_[person] -= (env.GetClock()-tick);
+			// if still waiting
+			if (deadlines_[person] > 0)
+			{
+				DEBUG_S("Person " << person->GetId() << " waits " << deadlines_[person]);
+			}
+			// crash violently if deadline reached
+			else
+			{
+				ostringstream result;
+				result << "[" << env.GetClock() << "] Person " << person->GetId() << " GIVES UP!<br>\n" << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog;
+				throw std::runtime_error(result.str());
+			}
+		}
+	}
+
+	void ElevatorLogic::collectInfo(Environment &env, Person *person)
+	{
+		// track person with start floor and time
+		if (allPersons.insert(make_pair(person,make_pair(person->GetCurrentFloor()->GetId(),env.GetClock()))).second)
+		{
+			// if it was new, also track deadline
+			deadlines_.insert(make_pair(person,person->GetGiveUpTime()));
+			DEBUG_S("Tracking person " << person->GetId());
+			checkTimer(env,person);
+		}
+		// start from this person's floor
+		Floor* f = person->GetCurrentFloor();
+		// find lowest floor
+		while (f->GetBelow() != nullptr)
+		{
+			f = f->GetBelow();
+		}
+		// check all floors up to the top
+		do
+		{
+			// insert new floor
+			if (allFloors.insert(f).second)
+			{
+				DEBUG_S("Adding floor "<< f->GetId());
+			}
+			// check all interfaces
+			for(int i = 0; i < f->GetInterfaceCount(); i++)
+			{
+				// insert all interfaces
+				allInterfaces.insert(f->GetInterface(i));
+				// insert all elevators
+				for(int k = 0; k < f->GetInterface(i)->GetLoadableCount(); k++)
+				{
+					Elevator *ele = static_cast<Elevator*>(f->GetInterface(i)->GetLoadable(k));
+					allElevators.insert(make_pair(ele,ele->GetCurrentFloor()->GetId()));
+					// insert all interfaces of the elevator
+					for(int j = 0; j < ele->GetInterfaceCount(); j++)
+					{
+						allInterfaces.insert(ele->GetInterface(j));
+					}
+				}
+			}
+			f = f->GetAbove();
+		}
+		while (f->GetAbove() != nullptr);
+	}
+
+	void ElevatorLogic::logEvent(Environment &env, const Event &e)
+	{
+		ostringstream event;
+		event << "[" << env.GetClock() << "] " <<
+		e.GetSender()->GetName() << " sends " <<
+		e.GetEvent() << " referencing " <<
+		(e.GetEventHandler() == nullptr ? "" : e.GetEventHandler()->GetName()) << "<br>" << endl;
+		eventlog.append(event.str());
+	}
+);

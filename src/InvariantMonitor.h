@@ -6,6 +6,10 @@
 #define INVARIANTMONITOR_H_
 #include "EventHandler.h"
 
+#include <map>
+#include <set>
+#include <chrono>
+
 class Elevator;
 class Person;
 
@@ -28,15 +32,14 @@ class InvariantMonitor: public EventHandler
     void HandleFixed(Environment &env, const Event &e);
     void HandleInteract(Environment &env, const Event &e);
     void HandleAll(Environment &env, const Event &e);
-    std::set elevators_;
-    std::set moving_;
-    std::set open_;
-    std::set beeping_;
-    std::set malfunctions_;
-    std::map loads_;
-    std::map deadlines_;
+    std::set<Elevator*> elevators_;
+    std::set<Elevator*> moving_;
+    std::set<Elevator*> open_;
+    std::set<Elevator*> beeping_;
+    std::set<Elevator*> malfunctions_;
+    std::map<Elevator*,int> loads_;
+    std::map<Person*,int> deadlines_;
     std::chrono::steady_clock::time_point start;
-    
 };
 
 #endif /* INVARIANTMONITOR_H_ */
