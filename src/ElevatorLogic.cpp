@@ -81,6 +81,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			}
 		};
 
+		// TODO: sort all elevators at this floor by shortest path to caller
+		// Then pick the one that would work best.
+
+
 		// get all elevators that stop at this floor
 		list<Elevator*> elevs;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
