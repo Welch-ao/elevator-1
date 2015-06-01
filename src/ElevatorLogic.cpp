@@ -126,6 +126,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// check elevators with empty queues
 		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
 		{
+			DEBUG_S("What about elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
 			// check if space left
 			if (getCapacity(*i) - person->GetWeight() >= 0 && elevators_[*i].queue.empty())
 			{
@@ -303,15 +304,19 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 	elevatorQueue::iterator i = queue.begin();
 	if (queue.empty())
 	{DEBUG_S("no floor in queue");}
-	for(; i != queue.end(); ++i)
-	{
-		if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+	// for(; i != queue.end(); ++i)
+	// {
+	// 	if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+	// 	{
+	// 		env.SendEvent("Elevator::Stop",0,ele,ele);
+	// 		return;
+	// 	}
+	// }
+	if (elevators_[ele].queue.front() == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 		{
 			env.SendEvent("Elevator::Stop",0,ele,ele);
 			return;
 		}
-	}
-
 	// otherwise continue movement and report back later
 	env.SendEvent("Elevator::Moving",1,ele,ele);
 }
