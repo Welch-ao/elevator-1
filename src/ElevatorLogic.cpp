@@ -72,26 +72,15 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 	{
 		Floor *personsFloor = person->GetCurrentFloor();
 
-		// get all elevators that stop at this floor
-		struct comp
-		{
-			bool operator() (const Elevator *a, const Elevator *b) const
-			{
-				return getTravelTime(a,personsFloor,a->GetCurrentFloor()) < getTravelTime(b,personsFloor,b->GetCurrentFloor());
-			}
-		};
-
 		// TODO: sort all elevators at this floor by shortest path to caller
 		// Then pick the one that would work best.
 
-
-		// get all elevators that stop at this floor
+		// get all usable elevators that stop at this floor
 		list<Elevator*> elevs;
 		for(int i = 0; i < interf->GetLoadableCount(); i++)
 		{
 			// cast the loadables to elevator pointers
 			Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
-			elevs.push_back(ele);
 
 			// while we're at it, add these elevators to our global map
 			// using default values for its state:
@@ -104,91 +93,93 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 			// put it into the global map (doesn't do anything if already exists)
 			elevators_.insert(elevState);
-		}
+			DEBUG_S("looking at " << ele->GetId() << " at floor " << ele->GetCurrentFloor()->GetId());
 
-
-		// get elevator with shortest travel time to caller
-		pair<Elevator*,int> shortest = make_pair((*elevs.begin()),999);
-		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
-		{
-			// check if space left
-			if (getTravelTime((*i),(*i)->GetCurrentFloor(),personsFloor) < shortest.second)
+			// check if space left, non-blocked and either idle or on the way
+			if (getCapacity(ele) - person->GetWeight() >= 0 && !elevators_[ele].busy && (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor)))
 			{
-				shortest = make_pair(*i,getTravelTime((*i),(*i)->GetCurrentFloor(),personsFloor));
+				addToList(elevs,ele,personsFloor);
 			}
 		}
-		DEBUG_S("Using elevator " << shortest.first->GetId() << " at floor " << shortest.first->GetCurrentFloor()->GetId());
-		SendToFloor(env,personsFloor,shortest.first);
-		return;
 
-		// check if any elevator is already at the calling person
-		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
+		DEBUG_V(elevs.empty());
+		if (!elevs.empty())
 		{
-			// check if space left
-			if (getCapacity(*i) - person->GetWeight() >= 0 && (*i)->GetCurrentFloor() == personsFloor)
-			{
-				DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
-				SendToFloor(env,personsFloor,*i);
-				return;
-			}
-			DEBUG
-			(
-				else if (getCapacity(*i) - person->GetWeight() < 0)
-				{
-					DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
-				}
-				else if ((*i)->GetCurrentFloor() != personsFloor)
-				{
-					DEBUG_S("Elevator " << (*i)->GetId() << " is at floor " << (*i)->GetCurrentFloor()->GetId());
-				}
-			);
+			DEBUG_S("Using elevator " << elevs.front()->GetId() << " at floor " << elevs.front()->GetCurrentFloor()->GetId());
+			DEBUG_S("Distance: " << getDistance(elevs.front()->GetCurrentFloor(),elevs.front()->GetPosition(),personsFloor) << " ETA: " << getTravelTime(elevs.front(),elevs.front()->GetCurrentFloor(),personsFloor));
+			SendToFloor(env,personsFloor,elevs.front());
+			return;
 		}
 
-		// check elevators with empty queues
-		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
-		{
-			// check if space left
-			if (getCapacity(*i) - person->GetWeight() >= 0 && elevators_[*i].queue.empty())
-			{
-				DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
-				SendToFloor(env,personsFloor,*i);
-				return;
-			}
-			DEBUG
-			(
-				else if (getCapacity(*i) - person->GetWeight() < 0)
-				{
-					DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
-				}
-				else if (!elevators_[*i].queue.empty())
-				{
-					DEBUG_S("Elevator " << (*i)->GetId() << " has items in queue.");
-				}
-			);
-		}
 
-		// check any other elevators
-		for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
-		{
-			// check if space left
-			if (getCapacity(*i) - person->GetWeight() >= 0 && !elevators_[*i].busy)
-			{
-				DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
-				SendToFloor(env,personsFloor,*i);
-				return;
-			}
-			DEBUG
-			(
-				else if (getCapacity(*i) - person->GetWeight() < 0)
-				{
-					DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
-				}
-				else if (elevators_[*i].busy)
-				{
-					DEBUG_S("Elevator " << (*i)->GetId() << " is busy.");
-				}
-			);
-		}
+		// // check if any elevator is already at the calling person
+		// for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
+		// {
+		// 	// check if space left
+		// 	if (getCapacity(*i) - person->GetWeight() >= 0 && (*i)->GetCurrentFloor() == personsFloor)
+		// 	{
+		// 		DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
+		// 		SendToFloor(env,personsFloor,*i);
+		// 		return;
+		// 	}
+		// 	DEBUG
+		// 	(
+		// 		else if (getCapacity(*i) - person->GetWeight() < 0)
+		// 		{
+		// 			DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
+		// 		}
+		// 		else if ((*i)->GetCurrentFloor() != personsFloor)
+		// 		{
+		// 			DEBUG_S("Elevator " << (*i)->GetId() << " is at floor " << (*i)->GetCurrentFloor()->GetId());
+		// 		}
+		// 	);
+		// }
+
+		// // check elevators with empty queues
+		// for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
+		// {
+		// 	// check if space left
+		// 	if (getCapacity(*i) - person->GetWeight() >= 0 && elevators_[*i].queue.empty())
+		// 	{
+		// 		DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
+		// 		SendToFloor(env,personsFloor,*i);
+		// 		return;
+		// 	}
+		// 	DEBUG
+		// 	(
+		// 		else if (getCapacity(*i) - person->GetWeight() < 0)
+		// 		{
+		// 			DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
+		// 		}
+		// 		else if (!elevators_[*i].queue.empty())
+		// 		{
+		// 			DEBUG_S("Elevator " << (*i)->GetId() << " has items in queue.");
+		// 		}
+		// 	);
+		// }
+
+		// // check any other elevators
+		// for(list<Elevator*>::iterator i = elevs.begin(); i != elevs.end(); ++i)
+		// {
+		// 	// check if space left
+		// 	if (getCapacity(*i) - person->GetWeight() >= 0 && !elevators_[*i].busy)
+		// 	{
+		// 		DEBUG_S("Using elevator " << (*i)->GetId() << " at floor " << (*i)->GetCurrentFloor()->GetId());
+		// 		SendToFloor(env,personsFloor,*i);
+		// 		return;
+		// 	}
+		// 	DEBUG
+		// 	(
+		// 		else if (getCapacity(*i) - person->GetWeight() < 0)
+		// 		{
+		// 			DEBUG_S("No capacity left for Elevator " << (*i)->GetId());
+		// 		}
+		// 		else if (elevators_[*i].busy)
+		// 		{
+		// 			DEBUG_S("Elevator " << (*i)->GetId() << " is busy.");
+		// 		}
+		// 	);
+		// }
 		// if none can come, try again next tick
 		env.SendEvent("Interface::Notify",1,interf,person);
 		DEBUG_S("No free elevator found, trying again later.");
@@ -544,7 +535,15 @@ bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
 	return
 	(
 		(ele->GetState() == Elevator::Up && ele->GetCurrentFloor()->IsAbove(target)) ||
-		(ele->GetState() == Elevator::Down && ele->GetCurrentFloor()->IsBelow(target))
+		(ele->GetState() == Elevator::Down && ele->GetCurrentFloor()->IsBelow(target)) ||
+		// if on the same floor
+		// otherwise same floor is recognized as lower
+		(ele->GetCurrentFloor() == target &&
+			(
+			(ele->GetPosition() > 0.5 && ele->GetState() == Elevator::Down) ||
+			(ele->GetPosition() < 0.5 && ele->GetState() == Elevator::Up)
+			)
+		)
 	);
 }
 
@@ -585,6 +584,34 @@ int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b)
 	return ceil(getDistance(a,ele->GetPosition(),b)/ele->GetSpeed());
 }
 
+void ElevatorLogic::addToList(list<Elevator*> elevs, Elevator* ele, Floor* target)
+{
+	DEBUG_S("Considering elevator " << ele->GetId());
+	DEBUG_S("Distance: " << getDistance(ele->GetCurrentFloor(),ele->GetPosition(),target) << " ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),target));
+
+	// if list empty, just add
+	if (elevs.empty())
+	{
+		elevs.push_front(ele);
+
+		return;
+	}
+
+	// otherwise find the right position to insert
+	// NOTE: list is sorted by travel time to target
+	auto i = elevs.begin();
+	for(; i != elevs.end(); ++i)
+	{
+		// insert before
+		if (getTravelTime((*i),(*i)->GetCurrentFloor(),target) > getTravelTime(ele,ele->GetCurrentFloor(),target))
+		{
+			// the insert happens after the loop anyway
+			break;
+		}
+	}
+	// if new floor is above all others, insert at the end
+	elevs.insert(i,ele);
+}
 
 DEBUG
 (

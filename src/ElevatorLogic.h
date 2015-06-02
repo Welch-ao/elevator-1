@@ -135,7 +135,8 @@ private:
 	double getDistance(Floor*,double,Floor*);
 	// calculate travel time for given elevator from one floor to the other
 	int getTravelTime(Elevator*,Floor*,Floor*);
-
+	// add to elevator list, sorted by travel time to given floor
+	void addToList(list<Elevator*>,Elevator*,Floor*);
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
 
