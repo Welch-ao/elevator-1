@@ -780,7 +780,7 @@ DEBUG
 			// update deadline
 			deadlines_[person] -= (env.GetClock()-tick);
 			// if still waiting
-			if (deadlines_[person] > 0)
+			if (deadlines_[person] >= 0)
 			{
 				DEBUG_S("Person " << person->GetId() << " waits " << deadlines_[person]);
 			}
