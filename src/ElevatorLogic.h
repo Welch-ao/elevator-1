@@ -137,10 +137,12 @@ private:
 	// check if elevator is on the way to given floor
 	bool onTheWay(Elevator*,Floor*);
 	// calculate the distance from one floor's relative position to a different floor stop
-	double getDistance(Floor*,double,Floor*);
+	double getDistance(Floor*,Floor*, double pos = 0.5);
 	// calculate travel time for given elevator from one floor to the other
-	int getTravelTime(Elevator*,Floor*,Floor*);
-	// add to elevator list, sorted by travel time to given floor
+	int getTravelTime(Elevator*,Floor*,Floor*, bool direct = false);
+	// calculate total time to work off queue and get to given floor afterwards
+	int getQueueLength(Elevator*,Floor*);
+	// add to elevator list, sorted by travel time through whole queue to given floor
 	void addToList(list<Elevator*>&,Elevator*,Floor*);
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
