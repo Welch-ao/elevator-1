@@ -87,7 +87,7 @@ public:
 		set<Person*> passengers;
 		elevatorQueue queue;
 		bool isBeeping;
-		bool isMalfunctioning;
+		bool isMalfunction;
 	} ElevatorState;
 
 	// default state of an elevator
@@ -113,7 +113,7 @@ private:
 	void HandleDown(Environment &env, const Event &e);
 	void HandleBeeping(Environment &env, const Event &e);
 	void HandleBeeped(Environment &env, const Event &e);
-	void HandleMalfunctioning(Environment &env, const Event &e);
+	void HandleMalfunction(Environment &env, const Event &e);
 	void HandleFixed(Environment &env, const Event &e);
 	// handle entering and exiting persons
 	void HandleEntering(Environment &env, const Event &e);
@@ -141,7 +141,7 @@ private:
 	// calculate travel time for given elevator from one floor to the other
 	int getTravelTime(Elevator*,Floor*,Floor*);
 	// add to elevator list, sorted by travel time to given floor
-	void addToList(list<Elevator*>,Elevator*,Floor*);
+	void addToList(list<Elevator*>&,Elevator*,Floor*);
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
 
