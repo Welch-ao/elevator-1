@@ -365,6 +365,7 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 		SendToFloor(env,elevators_[ele].queue.front(),ele);
 	}
 }
+
 void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
@@ -372,6 +373,7 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 	// stop immediately
 	env.SendEvent("Elevator::Stop",0,this,ele);
 }
+
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
@@ -395,6 +397,11 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 		DEBUG_S("Elevator " << ele->GetId() << " is overloaded!");
 		env.SendEvent("Elevator::Beep",0,this,ele);
 	}
+	else
+	{
+		closeDoor(env,ele);
+	}
+
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
@@ -423,7 +430,6 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 	DEBUG_S("Person " << person->GetId() << " waited " << deadlines_[person]);
 
 	deadlines_.erase(deadlines_.find(person));
-	closeDoor(env,ele);
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
