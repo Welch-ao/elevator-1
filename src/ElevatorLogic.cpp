@@ -318,15 +318,25 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 			result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetCurrentFloor()->GetId() << " moved with open door!<br>\n" ;
 			throw std::runtime_error(result.str());
 		}
+		else if (elevators_[ele].isMalfunctioning == true)
+		{
+			ostringstream result;
+			result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetCurrentFloor()->GetId() << " moved while malfunctioning!<br>\n" ;
+			throw std::runtime_error(result.str());
+		}
 	);
-
-	// NOTE: when we start moving the elevator, it sends a first notification automatically which has no data.
 
 	// stop if we're at the middle of any floor in the queue
 	elevatorQueue queue = elevators_[ele].queue;
+	DEBUG
+	(
+		// this should absolutely not happen
+		if (queue.empty())
+			{
+				DEBUG_S("no floor in queue");
+			}
+	);
 	elevatorQueue::iterator i = queue.begin();
-	if (queue.empty())
-	{DEBUG_S("no floor in queue");}
 	for(; i != queue.end(); ++i)
 	{
 		if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
