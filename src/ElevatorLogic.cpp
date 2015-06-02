@@ -93,8 +93,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 			// put it into the global map (doesn't do anything if already exists)
 			elevators_.insert(elevState);
-			DEBUG_S("looking at " << ele->GetId() << " at floor " << ele->GetCurrentFloor()->GetId());
-
 			// check if space left, non-blocked and either idle or on the way
 			if (getCapacity(ele) - person->GetWeight() >= 0 && !elevators_[ele].busy && (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor)))
 			{
@@ -102,11 +100,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			}
 		}
 
-		DEBUG_V(elevs.empty());
 		if (!elevs.empty())
 		{
-			DEBUG_S("Using elevator " << elevs.front()->GetId() << " at floor " << elevs.front()->GetCurrentFloor()->GetId());
-			DEBUG_S("Distance: " << getDistance(elevs.front()->GetCurrentFloor(),elevs.front()->GetPosition(),personsFloor) << " ETA: " << getTravelTime(elevs.front(),elevs.front()->GetCurrentFloor(),personsFloor));
+			DEBUG_S("Using elevator " << elevs.front()->GetId() << " at floor " << elevs.front()->GetCurrentFloor()->GetId() <<
+			". Distance: " << getDistance(elevs.front()->GetCurrentFloor(),elevs.front()->GetPosition(),personsFloor) << " ETA: " << getTravelTime(elevs.front(),elevs.front()->GetCurrentFloor(),personsFloor));
 			SendToFloor(env,personsFloor,elevs.front());
 			return;
 		}
@@ -584,10 +581,10 @@ int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b)
 	return ceil(getDistance(a,ele->GetPosition(),b)/ele->GetSpeed());
 }
 
-void ElevatorLogic::addToList(list<Elevator*> elevs, Elevator* ele, Floor* target)
+void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* target)
 {
-	DEBUG_S("Considering elevator " << ele->GetId());
-	DEBUG_S("Distance: " << getDistance(ele->GetCurrentFloor(),ele->GetPosition(),target) << " ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),target));
+	DEBUG_S("Considering elevator " << ele->GetId() <<
+	". Distance: " << getDistance(ele->GetCurrentFloor(),ele->GetPosition(),target) << " ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),target));
 
 	// if list empty, just add
 	if (elevs.empty())
@@ -730,7 +727,7 @@ DEBUG
 			// update deadline
 			deadlines_[person] -= (env.GetClock()-tick);
 			// if still waiting
-			if (deadlines_[person] > 0)
+			if (deadlines_[person] >= 0)
 			{
 				DEBUG_S("Person " << person->GetId() << " waits " << deadlines_[person]);
 			}
