@@ -132,9 +132,14 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		Elevator *ele = person->GetCurrentElevator();
 		// get target from the interface input
 		Floor *target = static_cast<Floor*>(loadable);
-		elevators_[ele].isBusy = false;
-		// send elevator to where the person wants to go
-		SendToFloor(env,target,ele);
+		if (!elevators_[ele].isBusy)
+		{
+			SendToFloor(env,target,ele);
+		}
+		else
+		{
+			addToQueue(ele,target);
+		}
 	}
 }
 
@@ -145,6 +150,7 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 
 	// set this elevator to moving state
 	elevators_[ele].isMoving = false;
+	elevators_[ele].isBusy = true;
 
 	// only open doors if we're at the middle of a floor
 	if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
@@ -342,15 +348,7 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 
 	elevators_[ele].passengers.insert(person);
 	elevators_[ele].isBusy = false;
-	if (getCapacity(ele) < 0)
-	{
-		DEBUG_S("Elevator " << ele->GetId() << " is overloaded!");
-		env.SendEvent("Elevator::Beep",0,this,ele);
-	}
-	else
-	{
-		closeDoor(env,ele);
-	}
+
 
 }
 
@@ -378,7 +376,15 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 	// do not track deadlines anymore
 	Person *person = static_cast<Person*>(e.GetSender());
 	DEBUG_S("Person " << person->GetId() << " waited " << deadlines_[person]);
-
+	if (getCapacity(ele) - person->GetWeight() < 0)
+	{
+		DEBUG_S("Elevator " << ele->GetId() << " will be overloaded if person enters!");
+		env.SendEvent("Elevator::Beep",0,this,ele);
+	}
+	else
+	{
+		closeDoor(env,ele);
+	}
 	deadlines_.erase(deadlines_.find(person));
 }
 
@@ -660,7 +666,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* f)
 void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* target)
 {
 	DEBUG_S("Considering elevator " << ele->GetId() <<
-	". Distance: " << getDistance(ele->GetCurrentFloor(),target,ele->GetPosition()) << " Direct Time: " << getTravelTime(ele,ele->GetCurrentFloor(),target) << " ETA: " << getQueueLength(ele,target));
+	". Distance: " << getDistance(ele->GetCurrentFloor(),target,ele->GetPosition()) << " Direct Time: " << getTravelTime(ele,ele->GetCurrentFloor(),target));// << " ETA: " << getQueueLength(ele,target));
 
 	// if list empty, just add
 	if (elevs.empty())
@@ -676,7 +682,7 @@ void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* targ
 	for(; i != elevs.end(); ++i)
 	{
 		// insert before
-		if (getQueueLength((*i),target) > getQueueLength(ele,target))
+		if (getTravelTime((*i),(*i)->GetCurrentFloor(),target) > getTravelTime(ele,ele->GetCurrentFloor(),target))
 		{
 			// the insert happens after the loop anyway
 			break;
