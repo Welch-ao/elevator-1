@@ -81,16 +81,17 @@ public:
 	// state of an elevator
 	typedef struct
 	{
-		bool busy;
+		bool isBusy;
 		DoorState doorState;
 		bool isMoving;
 		set<Person*> passengers;
 		elevatorQueue queue;
 		bool isBeeping;
+		bool isMalfunctioning;
 	} ElevatorState;
 
 	// default state of an elevator
-	#define ELEV_DEFAULT_STATE {false,Closed,false,passengers,queue,false}
+	#define ELEV_DEFAULT_STATE {false,Closed,false,passengers,queue,false,false}
 
 	ElevatorLogic();
 	virtual ~ElevatorLogic();
@@ -110,6 +111,10 @@ private:
 	void HandleMoving(Environment &env, const Event &e);
 	void HandleUp(Environment &env, const Event &e);
 	void HandleDown(Environment &env, const Event &e);
+	void HandleBeeping(Environment &env, const Event &e);
+	void HandleBeeped(Environment &env, const Event &e);
+	void HandleMalfunctioning(Environment &env, const Event &e);
+	void HandleFixed(Environment &env, const Event &e);
 	// handle entering and exiting persons
 	void HandleEntering(Environment &env, const Event &e);
 	void HandleExiting(Environment &env, const Event &e);
