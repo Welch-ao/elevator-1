@@ -85,6 +85,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		{
 			// cast the loadables to elevator pointers
 			Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
+			elevs.push_front(ele);
 
 			// while we're at it, add these elevators to our global map
 			// using default values for its state:
@@ -97,28 +98,88 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 			// put it into the global map (doesn't do anything if already exists)
 			elevators_.insert(elevState);
-			// check if space left, non-blocked and either idle or on the way
-			if (getCapacity(ele) - person->GetWeight() >= 0 && (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor)))
-			{
-				addToList(elevs,ele,personsFloor);
-			}
 		}
-
-		if (!elevs.empty())
+		// get from current floor
+		for(auto const &ele : elevs)
 		{
-			DEBUG_S("Using elevator " << elevs.front()->GetId() << " at floor " << elevs.front()->GetCurrentFloor()->GetId() <<
-			". Distance: " << getDistance(elevs.front()->GetCurrentFloor(),personsFloor,elevs.front()->GetPosition()) << " ETA: " << getTravelTime(elevs.front(),elevs.front()->GetCurrentFloor(),personsFloor));
-			if (!elevators_[elevs.front()].isBusy)
+			if (ele->GetState() == Elevator::Idle && ele->GetCurrentFloor() == personsFloor)
 			{
-				SendToFloor(env,personsFloor,elevs.front());
+				if (!elevators_[ele].isBusy)
+				{
+					SendToFloor(env,personsFloor,ele);
+				}
+				else
+				{
+					addToQueue(ele,personsFloor);
+				}
+				DEBUG_S("Using elevator " << ele->GetId() << " idling at floor " << ele->GetCurrentFloor()->GetId() <<
+				". Distance: " << getDistance(ele->GetCurrentFloor(),personsFloor,ele->GetPosition()) <<
+				" ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),personsFloor));
+				return;
 			}
-			else
-			{
-				addToQueue(elevs.front(),personsFloor);
-			}
-
-			return;
 		}
+
+		// get moving to current floor
+		for(auto const &ele : elevs)
+		{
+			if (onTheWay(ele,personsFloor))
+			{
+				if (!elevators_[ele].isBusy)
+				{
+					SendToFloor(env,personsFloor,ele);
+				}
+				else
+				{
+					addToQueue(ele,personsFloor);
+				}
+				DEBUG_S("Using elevator " << ele->GetId() << " on the way, at floor " << ele->GetCurrentFloor()->GetId() <<
+				" . Distance: " << getDistance(ele->GetCurrentFloor(),personsFloor,ele->GetPosition()) <<
+				" ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),personsFloor));
+				return;
+			}
+		}
+
+		// idling at some other floor
+		for(auto const &ele : elevs)
+		{
+			if (ele->GetState() == Elevator::Idle)
+			{
+				if (!elevators_[ele].isBusy)
+				{
+					SendToFloor(env,personsFloor,ele);
+				}
+				else
+				{
+					addToQueue(ele,personsFloor);
+				}
+				DEBUG_S("Using elevator " << ele->GetId() << " idling at floor " << ele->GetCurrentFloor()->GetId() <<
+				" . Distance: " << getDistance(ele->GetCurrentFloor(),personsFloor,ele->GetPosition()) <<
+				" ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),personsFloor));
+				return;
+			}
+		}
+
+		// get elevator with lowest load
+		Elevator * lowest = elevs.front();
+		for(auto const &ele : elevs)
+		{
+			if (getCapacity(ele) > getCapacity(lowest))
+			{
+				lowest = ele;
+			}
+		}
+		if (!lowest)
+		{
+			SendToFloor(env,personsFloor,lowest);
+		}
+		else
+		{
+			addToQueue(lowest,personsFloor);
+		}
+		DEBUG_S("Using elevator " << lowest->GetId() << " (smallest load of " << getCapacity(lowest) << " at floor " << lowest->GetCurrentFloor()->GetId() <<
+		" . Distance: " << getDistance(lowest->GetCurrentFloor(),personsFloor,lowest->GetPosition()) <<
+		" ETA: " << getTravelTime(lowest,lowest->GetCurrentFloor(),personsFloor));
+		return;
 
 		// if none can come, try again next tick
 		env.SendEvent("Interface::Notify",1,interf,person);
@@ -349,7 +410,15 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	elevators_[ele].passengers.insert(person);
 	elevators_[ele].isBusy = false;
 
-
+	if (getCapacity(ele) < 0)
+	{
+		DEBUG_S("Elevator " << ele->GetId() << "overloaded!");
+		env.SendEvent("Elevator::Beep",0,this,ele);
+	}
+	else
+	{
+		closeDoor(env,ele);
+	}
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
@@ -376,15 +445,16 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 	// do not track deadlines anymore
 	Person *person = static_cast<Person*>(e.GetSender());
 	DEBUG_S("Person " << person->GetId() << " waited " << deadlines_[person]);
-	if (getCapacity(ele) - person->GetWeight() < 0)
-	{
-		DEBUG_S("Elevator " << ele->GetId() << " will be overloaded if person enters!");
-		env.SendEvent("Elevator::Beep",0,this,ele);
-	}
-	else
-	{
-		closeDoor(env,ele);
-	}
+	// close doors quickly
+	// if (getCapacity(ele) - person->GetWeight() < 0)
+	// {
+	// 	DEBUG_S("Elevator " << ele->GetId() << " will be overloaded if person enters!");
+	// 	env.SendEvent("Elevator::Beep",0,this,ele);
+	// }
+	// else
+	// {
+	// 	closeDoor(env,ele);
+	// }
 	deadlines_.erase(deadlines_.find(person));
 }
 
@@ -403,7 +473,6 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 	// find out current floor
 	Floor *current = ele->GetCurrentFloor();
 
-	addToQueue(ele,target);
 	if (current == target)
 	{
 		openDoor(env,ele);
@@ -544,19 +613,16 @@ int ElevatorLogic::getCapacity(Elevator *ele)
 // check if elevator is on the way to given floor
 bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
 {
-	return
-	(
-		(ele->GetState() == Elevator::Up && ele->GetCurrentFloor()->IsAbove(target)) ||
-		(ele->GetState() == Elevator::Down && ele->GetCurrentFloor()->IsBelow(target)) ||
-		// if on the same floor
-		// otherwise same floor is recognized as lower
-		(ele->GetCurrentFloor() == target &&
-			(
-			(ele->GetPosition() > 0.5 && ele->GetState() == Elevator::Down) ||
-			(ele->GetPosition() < 0.5 && ele->GetState() == Elevator::Up)
-			)
-		)
-	);
+	if (!elevators_[ele].queue.empty())
+	{
+		return
+		(ele->GetCurrentFloor()->IsAbove(elevators_[ele].queue.front()) && ele->GetCurrentFloor()->IsAbove(target)) ||
+		(ele->GetCurrentFloor()->IsBelow(elevators_[ele].queue.front()) && ele->GetCurrentFloor()->IsBelow(target));
+	}
+	else
+	{
+		return false;
+	}
 }
 
 double ElevatorLogic::getDistance(Floor *a, Floor *b, double pos)
