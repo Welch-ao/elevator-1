@@ -87,7 +87,7 @@ public:
 		set<Person*> passengers;
 		elevatorQueue queue;
 		bool isBeeping;
-		bool isMalfunction;
+		bool isMalfunctioning;
 	} ElevatorState;
 
 	// default state of an elevator
@@ -140,13 +140,12 @@ private:
 	double getDistance(Floor*,Floor*, double pos = 0.5);
 	// calculate travel time for given elevator from one floor to the other
 	int getTravelTime(Elevator*,Floor*,Floor*, bool direct = false);
-	// calculate total time to work off queue and get to given floor afterwards
-	int getQueueLength(Elevator*,Floor*);
 	// add to elevator list, sorted by travel time through whole queue to given floor
 	void addToList(list<Elevator*>&,Elevator*,Floor*);
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
-
+	// process an elevators queue
+	void processQueue(Elevator*);
 
 
 	DEBUG

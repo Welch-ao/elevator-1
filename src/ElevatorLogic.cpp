@@ -114,7 +114,6 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				{
 					SendToFloor(env,personsFloor,ele);
 				}
-
 				return;
 			}
 		}
@@ -232,7 +231,7 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 	elevators_[ele].queue.remove(ele->GetCurrentFloor());
 	DEBUG_S("Removed floor " << ele->GetCurrentFloor()->GetId() << " from queue.");
 	// get to the next floor in queue as quickly as possible
-	if (!elevators_[ele].queue.empty())
+	if (!elevators_[ele].queue.empty() && !elevators_[ele].isMalfunctioning)
 	{
 		SendToFloor(env,elevators_[ele].queue.front(),ele);
 	}
@@ -319,7 +318,7 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 			result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved with open door!<br>\n" ;
 			throw std::runtime_error(result.str());
 		}
-		else if (elevators_[ele].isMalfunction == true)
+		else if (elevators_[ele].isMalfunctioning == true)
 		{
 			ostringstream result;
 			result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved while malfunctioning!<br>\n" ;
@@ -370,7 +369,7 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	elevators_[ele].isBeeping = false;
 	// continue normal operation
-	if (!elevators_[ele].queue.empty())
+	if (!elevators_[ele].queue.empty() && !elevators_[ele].isMalfunctioning)
 	{
 		SendToFloor(env,elevators_[ele].queue.front(),ele);
 	}
@@ -379,7 +378,7 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	elevators_[ele].isMalfunction = true;
+	elevators_[ele].isMalfunctioning = true;
 	// stop immediately
 	env.SendEvent("Elevator::Stop",0,this,ele);
 }
@@ -387,9 +386,9 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	elevators_[ele].isMalfunction = false;
+	elevators_[ele].isMalfunctioning = false;
 	// continue normal operation
-	if (!elevators_[ele].queue.empty())
+	if (!elevators_[ele].queue.empty() && !elevators_[ele].isBeeping)
 	{
 		SendToFloor(env,elevators_[ele].queue.front(),ele);
 	}
@@ -422,7 +421,6 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	elevators_[ele].passengers.erase(person);
 	elevators_[ele].isBusy = false;
 	// after someone left, go to lowest floor in queue
-	// WARNING: just a dummy, we should actually continue our path
 	if (!elevators_[ele].queue.empty())
 	{
 		SendToFloor(env,elevators_[ele].queue.front(),ele);
@@ -438,15 +436,15 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 	Person *person = static_cast<Person*>(e.GetSender());
 	DEBUG_S("Person " << person->GetId() << " waited " << deadlines_[person]);
 	// close doors quickly
-	if (getCapacity(ele) - person->GetWeight() < 0)
-	{
-		DEBUG_S("Elevator " << ele->GetId() << " will be overloaded if person enters!");
-		env.SendEvent("Elevator::Beep",0,this,ele);
-	}
-	else
-	{
-		closeDoor(env,ele);
-	}
+	// if (getCapacity(ele) - person->GetWeight() < 0)
+	// {
+	// 	DEBUG_S("Elevator " << ele->GetId() << " will be overloaded if person enters!");
+	// 	env.SendEvent("Elevator::Beep",0,this,ele);
+	// }
+	// else
+	// {
+	// 	closeDoor(env,ele);
+	// }
 	deadlines_.erase(deadlines_.find(person));
 }
 
@@ -454,7 +452,7 @@ void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	elevators_[ele].isBusy = true;
-	closeDoor(env,ele);
+	//closeDoor(env,ele);
 }
 
 // send elevator into general direction of given floor
