@@ -351,6 +351,15 @@ void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	elevators_[ele].isBeeping = true;
+	DEBUG
+	(
+		if (elevators_[ele].doorState == Closed)
+		{
+			ostringstream result;
+			result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetCurrentFloor()->GetId() << " started beeping with door closed!<br>\n" ;
+			throw std::runtime_error(result.str());
+		}
+	);
 }
 void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 {
