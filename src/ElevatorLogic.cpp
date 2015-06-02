@@ -98,7 +98,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			// put it into the global map (doesn't do anything if already exists)
 			elevators_.insert(elevState);
 			// check if space left, non-blocked and either idle or on the way
-			if (getCapacity(ele) - person->GetWeight() >= 0 && !elevators_[ele].isBusy && (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor)))
+			if (getCapacity(ele) - person->GetWeight() >= 0 && (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor)))
 			{
 				addToList(elevs,ele,personsFloor);
 			}
@@ -108,7 +108,15 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		{
 			DEBUG_S("Using elevator " << elevs.front()->GetId() << " at floor " << elevs.front()->GetCurrentFloor()->GetId() <<
 			". Distance: " << getDistance(elevs.front()->GetCurrentFloor(),personsFloor,elevs.front()->GetPosition()) << " ETA: " << getTravelTime(elevs.front(),elevs.front()->GetCurrentFloor(),personsFloor));
-			SendToFloor(env,personsFloor,elevs.front());
+			if (!elevators_[elevs.front()].isBusy)
+			{
+				SendToFloor(env,personsFloor,elevs.front());
+			}
+			else
+			{
+				addToQueue(elevs.front(),personsFloor);
+			}
+
 			return;
 		}
 
@@ -157,12 +165,14 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevators_[ele].doorState = Opening;
+	elevators_[ele].isBusy = true;
 }
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevators_[ele].doorState = Opened;
+	elevators_[ele].isBusy = false;
 	// remove floor from queue where we just opened the door
 	elevators_[ele].queue.remove(ele->GetCurrentFloor());
 	DEBUG_S("Removed floor " << ele->GetCurrentFloor()->GetId() << " from queue.");
@@ -172,12 +182,15 @@ void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevators_[ele].doorState = Closing;
+	elevators_[ele].isBusy = true;
+
 }
 
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevators_[ele].doorState = Closed;
+	elevators_[ele].isBusy = false;
 	// get to the next floor in queue as quickly as possible
 	if (!elevators_[ele].queue.empty())
 	{
@@ -593,27 +606,55 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* f)
 		return getTravelTime(ele,ele->GetCurrentFloor(),f);
 	}
 
-	// travel to first floor in queue
-	int result = getTravelTime(ele,ele->GetCurrentFloor(),elevators_[ele].queue.front());
-	// go up to second last element in queue
-	auto i = elevators_[ele].queue.begin();
-	while (i != elevators_[ele].queue.end())
+	// if next move is the right direction
+	if (ele->GetCurrentFloor()->IsAbove(elevators_[ele].queue.front()) && ele->GetCurrentFloor()->IsAbove(f))
 	{
-		auto j = i;
-		++j;
-		if (j != elevators_[ele].queue.end())
+		int result = 0;
+		auto i = elevators_[ele].queue.begin();
+		// compare with first element of queue
+		if
+		(
+			(getTravelTime(ele,ele->GetCurrentFloor(),*i) < getTravelTime(ele,ele->GetCurrentFloor(),f)) ||
+			(ele->GetCurrentFloor()->IsBelow(elevators_[ele].queue.front()) && ele->GetCurrentFloor()->IsBelow(f))
+		)
 		{
-			result += getTravelTime(ele,*i,*j,false);
+			result += getTravelTime(ele,ele->GetCurrentFloor(),*i);
 			++i;
 		}
 		else
 		{
-			break;
+			result += getTravelTime(ele,ele->GetCurrentFloor(),f);
+			return result;
 		}
+
+		// compare with second to second-to-last elements
+		while (i != elevators_[ele].queue.end())
+		{
+			auto j = i;
+			++j;
+			if (j != elevators_[ele].queue.end())
+			{
+				if (getTravelTime(ele,*i,*j) < getTravelTime(ele,*i,f))
+				{
+					result += getTravelTime(ele,*i,*j);
+				}
+				else
+				{
+					result += getTravelTime(ele,*i,f);
+					return result;
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		// last element has nothing to compare with, just add target at the end
+		result += getTravelTime(ele,*i,f);
+		return result;
 	}
-	// travel from last floor in queue to new floor
-	result += getTravelTime(ele,*i,f,false);
-	return result;
+	return 99999;
 }
 
 void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* target)
