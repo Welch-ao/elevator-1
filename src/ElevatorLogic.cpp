@@ -179,10 +179,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// get target from the interface input
 		Floor *target = static_cast<Floor*>(loadable);
 		addToQueue(ele,target);
-		if (!elevators_[ele].isBusy)
-		{
-			SendToFloor(env,target,ele);
-		}
+		// if (!elevators_[ele].isBusy)
+		// {
+		// 	SendToFloor(env,target,ele);
+		// }
 	}
 }
 
@@ -225,11 +225,11 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 	// remove floor from queue where we just opened the door
 	elevators_[ele].queue.remove(ele->GetCurrentFloor());
 	DEBUG_S("Removed floor " << ele->GetCurrentFloor()->GetId() << " from queue.");
-	// get to the next floor in queue as quickly as possible
-	if (!elevators_[ele].queue.empty() && !elevators_[ele].isMalfunctioning)
-	{
-		SendToFloor(env,elevators_[ele].queue.front(),ele);
-	}
+	// // get to the next floor in queue as quickly as possible
+	// if (!elevators_[ele].queue.empty() && !elevators_[ele].isMalfunctioning)
+	// {
+	// 	SendToFloor(env,elevators_[ele].queue.front(),ele);
+	// }
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
