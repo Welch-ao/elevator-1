@@ -814,28 +814,6 @@ DEBUG
 		return oss.str();
 	}
 
-	void ElevatorLogic::checkTimer(Environment &env, Person *person)
-	{
-		// // get person's timer
-		// if (deadlines_.find(person) != deadlines_.end())
-		// {
-		// 	// update deadline
-		// 	deadlines_[person] -= (env.GetClock()-tick);
-		// 	// if still waiting
-		// 	if (deadlines_[person] >= 0)
-		// 	{
-		// 		DEBUG_S("[Person " << person->GetId() << "] Waiting " << (deadlines_[person] - env.GetClock()));
-		// 	}
-		// 	// crash violently if deadline reached
-		// 	else
-		// 	{
-		// 		ostringstream result;
-		// 		result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Person " << person->GetId() << " gave up!<br>\n";
-		// 		throw std::runtime_error(result.str());
-		// 	}
-		// }
-	}
-
 	void ElevatorLogic::collectInfo(Environment &env, Person *person)
 	{
 		// track person with start floor and time
