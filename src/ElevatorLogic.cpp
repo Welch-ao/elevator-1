@@ -82,7 +82,27 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 
 	if (!elevs.empty())
 	{
-		return elevs.front();
+		// get idles from current floor
+		for(auto const &ele : elevs)
+		{
+			if (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor))
+			{
+				DEBUG_S("Using elevator " << ele->GetId() << " idling at floor " << ele->GetCurrentFloor()->GetId());
+				return ele;
+			}
+		}
+
+		// get elevator with lowest load
+		Elevator *lowest = elevs.front();
+		for(auto const &ele : elevs)
+		{
+			if (getCapacity(ele) > getCapacity(lowest))
+			{
+				lowest = ele;
+			}
+		}
+		DEBUG_S("Using elevator " << lowest->GetId() << " (smallest load of " << getCapacity(lowest) << " at floor " << lowest->GetCurrentFloor()->GetId());
+		return lowest;
 	}
 	else
 	{
