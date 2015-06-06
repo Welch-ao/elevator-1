@@ -97,7 +97,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			{
 
 				ostringstream result;
-				result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved with open door!<br>\n" ;
+				result << showTestCase() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved with open door!<br>\n" ;
 				throw std::runtime_error(result.str());
 			}
 			// else if (elevators_[ele].isMalfunction == true)
@@ -701,7 +701,7 @@ DEBUG
 			{
 				DEBUG_S("[Person " << pair.first->GetId() << "] Waiting " << (pair.second - e.GetTime()));
 			    if (e.GetTime() > pair.second)
-			        throw std::runtime_error("A person gave up waiting for an elevator");
+			        throw std::runtime_error(eventlog + "A person gave up waiting for an elevator");
 			}
 			tick = env.GetClock();
 		}
@@ -877,5 +877,10 @@ DEBUG
 		e.GetEvent() << " referencing " <<
 		(e.GetEventHandler() == nullptr ? "" : e.GetEventHandler()->GetName()) << "<br>" << endl;
 		eventlog.append(event.str());
+	}
+
+	string ElevatorLogic::showTestCase()
+	{
+		return (showFloors() + showElevators() + showPersons() + showInterfaces());
 	}
 );

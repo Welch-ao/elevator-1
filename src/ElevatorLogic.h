@@ -182,6 +182,7 @@ private:
 		void HandleAll(Environment &env, const Event &e);
 		void collectInfo(Environment&, Person*);
 		void logEvent(Environment&, const Event&);
+		string showTestCase();
 	);
 
 };
