@@ -85,7 +85,7 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 		// get idles from current floor
 		for(auto const &ele : elevs)
 		{
-			if (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor))
+			if (!elevators_[ele].isMoving || onTheWay(ele,personsFloor))
 			{
 				DEBUG_S("Using elevator " << ele->GetId() << " idling at floor " << ele->GetCurrentFloor()->GetId());
 				return ele;

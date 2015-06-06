@@ -31,14 +31,13 @@ Declared event: Person::Exiting
 Declared event: Person::Exited
 Declared event: Person::Canceled
 Using Loadable object: Floor
-Running test: test/tothenextlevel
-Created Floor 11
+Running test: passed/2persons
 Created Floor 10
-Created Floor 9
+Created Floor 11
+Created Floor 12
 Created Interface 40
 Created UpDownButton 41
 Created Elevator 20
-Created Elevator 21
 Created Interface 30
 Created Interface 31
 Created Interface 32
@@ -49,87 +48,148 @@ Object references resolved
 Loaded objects validated
 Environment validated
 Path for Person 50 is Floor 10 
-Path for Person 51 is Floor 11 
+Path for Person 51 is Floor 10 
 Event handlers initialized
 Starting simulation:
-[0] Person 50 sends Interface::Interact referencing Interface 40
+[0] Person 50 sends Interface::Interact referencing UpDownButton 41
 [0] Person 51 sends Interface::Interact referencing Interface 40
-[0] Interface 40 sends Interface::Notify referencing Person 50
-	DEBUG: [NSA] Tracking person 50
-	DEBUG: [NSA] Tracking floor 9
+[0] UpDownButton 41 sends UpDownButton::Decide referencing Person 50
+[0] Interface 40 sends Interface::Notify referencing Person 51
+	DEBUG: [NSA] Tracking person 51
+	DEBUG: [NSA] Tracking floor 12
 	DEBUG: [NSA] Tracking interface 40
 	DEBUG: [NSA] Tracking elevator 20
 	DEBUG: [NSA] Tracking interface 30
 	DEBUG: [NSA] Tracking interface 31
 	DEBUG: [NSA] Tracking interface 32
-	DEBUG: [NSA] Tracking elevator 21
-	DEBUG: [NSA] Tracking floor 10
-	DEBUG: [NSA] Tracking interface 41
 	DEBUG: [NSA] Tracking floor 11
+	DEBUG: [NSA] Tracking interface 41
+	DEBUG: [NSA] Tracking floor 10
+	DEBUG: [Person 51] Going from floor 12 to floor 10
+	DEBUG: [Person 51] Waiting 15
+	DEBUG ele->GetId(): 20
+	DEBUG: Considering elevator 20. Distance: 4 ETA: 4
+	DEBUG elevators_[ele].isMoving: 0
+	DEBUG onTheWay(ele,personsFloor): 0
+	DEBUG: Using elevator 20 idling at floor 11
+	DEBUG: Using elevator 20 at floor 11. Distance: 4 ETA: 4
+	DEBUG: Sending elevator 20 to floor 12
+	DEBUG: [Elevator 20] Added floor 12 to queue
+	DEBUG: Door closed, we're good to go
+	DEBUG: Target floor 12 is below elevator's current floor 11
+[0] Person 50 sends UpDownButton::Up referencing UpDownButton 41
+[0] ElevatorLogic sends Elevator::Down referencing Elevator 20
+[0] UpDownButton 41 sends Interface::Notify referencing Person 50 (Data: Up)
+	DEBUG: [NSA] Tracking person 50
 	DEBUG: [Person 50] Going from floor 11 to floor 10
 	DEBUG: [Person 50] Waiting 10
-	DEBUG: Considering elevator 20. Distance: 8 ETA: 8
-	DEBUG: Considering elevator 21. Distance: 8 ETA: 8
-	DEBUG: Using elevator 20 idling at floor 9
-	DEBUG: Using elevator 20 at floor 9. Distance: 8 ETA: 8
+	DEBUG ele->GetId(): 20
+	DEBUG: Considering elevator 20. Distance: 0 ETA: 0
+	DEBUG elevators_[ele].isMoving: 1
+	DEBUG onTheWay(ele,personsFloor): 0
+	DEBUG: Using elevator 20 (smallest load of 10 at floor 11
+	DEBUG: Using elevator 20 at floor 11. Distance: 0 ETA: 0
 	DEBUG: Sending elevator 20 to floor 11
 	DEBUG: [Elevator 20] Added floor 11 to queue
-	DEBUG: Door closed, we're good to go
-	DEBUG: Target floor 11 is above elevator's current floor 9
-[0] Interface 40 sends Interface::Notify referencing Person 51
-	DEBUG: [NSA] Tracking person 51
-	DEBUG: [Person 51] Going from floor 9 to floor 11
-	DEBUG: [Person 51] Waiting 10
-	DEBUG: Considering elevator 20. Distance: 0 ETA: 0
-	DEBUG: Considering elevator 21. Distance: 0 ETA: 0
-	DEBUG: Using elevator 20 idling at floor 9
-	DEBUG: Using elevator 20 at floor 9. Distance: 0 ETA: 0
-	DEBUG: Sending elevator 20 to floor 9
-	DEBUG: [Elevator 20] Added floor 9 to queue
-[0] ElevatorLogic sends Elevator::Up referencing Elevator 20
 [0] Elevator 20 sends Elevator::Moving
 [0] Elevator 20 sends Interface::Notify referencing Elevator 20
-	DEBUG: [Elevator 20] Floor 9 (0.5), moving UP
+	DEBUG: [Elevator 20] Floor 11 (0.5), moving DOWN
 [0] ElevatorLogic sends Elevator::Stop referencing Elevator 20
 [0] Elevator 20 sends Elevator::Stopped
 [0] ElevatorLogic sends Elevator::Open referencing Elevator 20
 [0] Elevator 20 sends Elevator::Opening
 [3] Elevator 20 sends Elevator::Opened
+	DEBUG: [Person 51] Waiting 12
 	DEBUG: [Person 50] Waiting 7
-	DEBUG: [Person 51] Waiting 7
-	DEBUG: [Elevator 20] Removed floor 9 from queue
-[3] Person 51 sends Person::Entering referencing Elevator 20
-	DEBUG: [Person 51] Had 7 ticks left
+	DEBUG: [Elevator 20] Removed floor 11 from queue
+[3] Person 50 sends Person::Entering referencing Elevator 20
+	DEBUG: [Person 50] Had 7 ticks left
 [3] ElevatorLogic sends Elevator::Close referencing Elevator 20
 [3] Elevator 20 sends Elevator::Closing
-[6] Person 51 sends Person::Entered referencing Elevator 20
-	DEBUG: [Person 50] Waiting 4
+[6] Person 50 sends Person::Entered referencing Elevator 20
+	DEBUG: [Person 51] Waiting 9
 [6] Elevator 20 sends Elevator::Closed
-	DEBUG: Sending elevator 20 to floor 11
-	DEBUG: Floor 11 already in queue of elevator 20
+	DEBUG: Sending elevator 20 to floor 12
+	DEBUG: Floor 12 already in queue of elevator 20
 	DEBUG: Door closed, we're good to go
-	DEBUG: Target floor 11 is above elevator's current floor 9
-[6] ElevatorLogic sends Elevator::Up referencing Elevator 20
+	DEBUG: Target floor 12 is below elevator's current floor 11
+[6] ElevatorLogic sends Elevator::Down referencing Elevator 20
 [6] Elevator 20 sends Elevator::Moving
 [6] Elevator 20 sends Interface::Notify referencing Elevator 20
-	DEBUG: [Elevator 20] Floor 9 (0.5), moving UP
+	DEBUG: [Elevator 20] Floor 11 (0.5), moving DOWN
 [7] Elevator 20 sends Interface::Notify referencing Elevator 20
-	DEBUG: [Person 50] Waiting 3
-	DEBUG: [Elevator 20] Floor 9 (0.75), moving UP
+	DEBUG: [Person 51] Waiting 8
+	DEBUG: [Elevator 20] Floor 11 (0.25), moving DOWN
 [8] Elevator 20 sends Interface::Notify referencing Elevator 20
-	DEBUG: [Person 50] Waiting 2
-	DEBUG: [Elevator 20] Floor 10 (0), moving UP
-[9] Person 51 sends Interface::Interact referencing Interface 32
-	DEBUG: [Person 50] Waiting 1
+	DEBUG: [Person 51] Waiting 7
+	DEBUG: [Elevator 20] Floor 12 (1), moving DOWN
+[9] Person 50 sends Interface::Interact referencing Interface 30
+	DEBUG: [Person 51] Waiting 6
 [9] Elevator 20 sends Interface::Notify referencing Elevator 20
-	DEBUG: [Elevator 20] Floor 10 (0.25), moving UP
-[9] Interface 32 sends Interface::Notify referencing Person 51
-	DEBUG: [Person 51] Going from floor 9 to floor 11
-	DEBUG: Sending elevator 20 to floor 11
-	DEBUG: Floor 11 already in queue of elevator 20
+	DEBUG: [Elevator 20] Floor 12 (0.75), moving DOWN
+[9] Interface 30 sends Interface::Notify referencing Person 50
+	DEBUG: [Person 50] Going from floor 11 to floor 10
+	DEBUG: Sending elevator 20 to floor 10
+	DEBUG: [Elevator 20] Added floor 10 to queue
 	DEBUG: Already moving, do nothing
 [10] Elevator 20 sends Interface::Notify referencing Elevator 20
-	DEBUG: [Person 50] Waiting 0
+	DEBUG: [Person 51] Waiting 5
+	DEBUG: [Elevator 20] Floor 12 (0.5), moving DOWN
+[10] ElevatorLogic sends Elevator::Stop referencing Elevator 20
+[10] Elevator 20 sends Elevator::Stopped
+[10] ElevatorLogic sends Elevator::Open referencing Elevator 20
+[10] Elevator 20 sends Elevator::Opening
+[13] Elevator 20 sends Elevator::Opened
+	DEBUG: [Person 51] Waiting 2
+	DEBUG: [Elevator 20] Removed floor 12 from queue
+[13] Person 51 sends Person::Entering referencing Elevator 20
+	DEBUG: [Person 51] Had 2 ticks left
+[13] ElevatorLogic sends Elevator::Close referencing Elevator 20
+[13] Elevator 20 sends Elevator::Closing
+[16] Person 51 sends Person::Entered referencing Elevator 20
+[16] Elevator 20 sends Elevator::Closed
+	DEBUG: Sending elevator 20 to floor 10
+	DEBUG: Floor 10 already in queue of elevator 20
+	DEBUG: Door closed, we're good to go
+	DEBUG: Target floor 10 is above elevator's current floor 12
+[16] ElevatorLogic sends Elevator::Up referencing Elevator 20
+[16] Elevator 20 sends Elevator::Moving
+[16] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 12 (0.5), moving UP
+[17] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 12 (0.75), moving UP
+[18] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 11 (0), moving UP
+[19] Person 51 sends Interface::Interact referencing Interface 30
+[19] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 11 (0.25), moving UP
+[19] Interface 30 sends Interface::Notify referencing Person 51
+	DEBUG: [Person 51] Going from floor 12 to floor 10
+	DEBUG: Sending elevator 20 to floor 10
+	DEBUG: Floor 10 already in queue of elevator 20
+	DEBUG: Already moving, do nothing
+[20] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 11 (0.5), moving UP
+[21] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 11 (0.75), moving UP
+[22] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 10 (0), moving UP
+[23] Elevator 20 sends Interface::Notify referencing Elevator 20
+	DEBUG: [Elevator 20] Floor 10 (0.25), moving UP
+[24] Elevator 20 sends Interface::Notify referencing Elevator 20
 	DEBUG: [Elevator 20] Floor 10 (0.5), moving UP
-[11] Elevator 20 sends Interface::Notify referencing Elevator 20
-	DEBUG: [Person 50] Waiting -1
+[24] ElevatorLogic sends Elevator::Stop referencing Elevator 20
+[24] Elevator 20 sends Elevator::Stopped
+[24] ElevatorLogic sends Elevator::Open referencing Elevator 20
+[24] Elevator 20 sends Elevator::Opening
+[27] Elevator 20 sends Elevator::Opened
+	DEBUG: [Elevator 20] Removed floor 10 from queue
+[27] Person 51 sends Person::Exiting referencing Elevator 20
+[27] Person 50 sends Person::Exiting referencing Elevator 20
+[27] ElevatorLogic sends Elevator::Close referencing Elevator 20
+[27] Elevator 20 sends Elevator::Closing
+[30] Person 51 sends Person::Exited referencing Elevator 20
+[30] Person 50 sends Person::Exited referencing Elevator 20
+[30] Elevator 20 sends Elevator::Closed
+Simulation finished.
+Test passed/2persons ran successfully.
