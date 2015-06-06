@@ -76,17 +76,15 @@ public:
 		Opened
 	};
 
-	typedef list<Floor*> elevatorQueue;
-
 	// state of an elevator
 	typedef struct
 	{
 		bool isBusy;
 		DoorState doorState;
 		set<Person*> passengers;
-		elevatorQueue queue;
-		elevatorQueue queueUp;
-		elevatorQueue queueDown;
+		set<Floor*> queue;
+		set<Floor*> queueUp;
+		set<Floor*> queueDown;
 		bool isBeeping;
 		bool isMalfunction;
 	} ElevatorState;
