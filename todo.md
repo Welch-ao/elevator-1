@@ -13,3 +13,4 @@
 - queue as ordered set with comparison by IsBelow/IsAbove
 - split queue up in all floors below elevator and all above
 - prioritize queue by waiting persons vs. persons in elevator
+

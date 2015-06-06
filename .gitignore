@@ -4,6 +4,7 @@
 # Temporary files
 obj/*
 bin/*
+log/*
 
 # Compiled Object files
 *.slo

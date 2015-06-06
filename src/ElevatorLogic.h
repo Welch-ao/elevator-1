@@ -130,8 +130,10 @@ private:
 	void openDoor(Environment &env, Elevator*);
 	// close a given elevators door
 	void closeDoor(Environment &env, Elevator*);
-	// add a floor and a person which wants to go there
-	// to an elevators queue
+	// pick an elevator for a caller
+	// returns nulltpr if none found
+	Elevator* pickElevator(Environment &env, const Event &e);
+	// add a floor and a person which wants to go there to an elevators queue
 	void addToQueue(Elevator*,Floor*);
 	// get free space of given elevator
 	int getCapacity(Elevator* const);
