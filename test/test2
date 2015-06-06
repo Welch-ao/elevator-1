@@ -1,7 +1,7 @@
 Floor { 10 11 0 10 1 40 }
 Floor { 11 0 10 10 1 40 }
-Elevator { 21 2 10 11 2 30 31 }
-Elevator { 20 1 10 11 2 30 31 }
+Elevator { 21 1 10 11 2 30 31 }
+Elevator { 20 2 10 11 2 30 31 }
 Person { 50 10 11 8 10 0 }
 Interface { 40 2 20 21 }
 Interface { 30 1 10 }
