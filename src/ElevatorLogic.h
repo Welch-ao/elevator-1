@@ -52,7 +52,6 @@
 #include <list>
 #include <map>
 #include <set>
-#include <chrono>
 
 using namespace std;
 
@@ -86,12 +85,14 @@ public:
 		DoorState doorState;
 		set<Person*> passengers;
 		elevatorQueue queue;
+		elevatorQueue queueUp;
+		elevatorQueue queueDown;
 		bool isBeeping;
 		bool isMalfunction;
 	} ElevatorState;
 
 	// default state of an elevator
-	#define ELEV_DEFAULT_STATE {false,Closed,false,passengers,queue,false,false}
+	#define ELEV_DEFAULT_STATE {false,Closed,passengers,queue,queueUp,queueDown,false,false}
 
 	ElevatorLogic();
 	virtual ~ElevatorLogic();
@@ -124,7 +125,7 @@ private:
 
 	/*** helper functions ***/
 	// send elevator to given floor
-	void SendToFloor(Environment &env, Floor*, Elevator*);
+	void sendToFloor(Environment &env, Floor*, Elevator*);
 	// open a given elevators door
 	void openDoor(Environment &env, Elevator*);
 	// close a given elevators door
@@ -133,22 +134,31 @@ private:
 	// returns nulltpr if none found
 	Elevator* pickElevator(Environment &env, const Event &e);
 	// add a floor and a person which wants to go there to an elevators queue
-	void addToQueue(Elevator*,Floor*);
+	void addToQueue(Elevator*, Floor*);
 	// get free space of given elevator
 	int getCapacity(Elevator* const);
 	// check if elevator is on the way to given floor
-	bool onTheWay(Elevator*,Floor*);
+	bool onTheWay(Elevator*, Floor*);
 	// calculate the distance from one floor's relative position to a different floor stop
-	double getDistance(Floor*,Floor*, double pos = 0.5);
+	double getDistance(Floor*, Floor*, double pos = 0.5);
 	// calculate travel time for given elevator from one floor to the other
-	int getTravelTime(Elevator*,Floor*,Floor*, bool direct = false);
+	int getTravelTime(Elevator*, Floor*, Floor*, bool direct = false);
 	// calculate total time to work off queue and get to given floor afterwards
-	int getQueueLength(Elevator*,Floor*);
+	int getQueueLength(Elevator*, Floor*);
 	// add to elevator list, sorted by travel time through whole queue to given floor
-	void addToList(list<Elevator*>&,Elevator*,Floor*);
+	void addToList(list<Elevator*>&, Elevator*, Floor*);
+	// after interruption, continue working off the queues
+	void continueOperation(Environment&, Elevator*);
+
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
-
+	std::map<Elevator*,int> loads_;
+	std::set<Elevator*> moving_;
+	std::set<Elevator*> movingUp_;
+	std::set<Elevator*> movingDown_;
+	std::set<Elevator*> open_;
+	std::set<Elevator*> beeping_;
+	std::set<Elevator*> malfunctions_;
 
 
 	DEBUG
@@ -171,15 +181,10 @@ private:
 	map<Elevator*,int> allElevators;
 	// persons with their deadlines
 	std::map<Person*,int> deadlines_;
-	std::map<Elevator*,int> loads_;
+
 
 	DEBUG
 	(
-		std::set<Elevator*> moving_;
-		std::set<Elevator*> open_;
-		std::set<Elevator*> beeping_;
-		std::set<Elevator*> malfunctions_;
-		std::chrono::steady_clock::time_point start;
 		void HandleAll(Environment &env, const Event &e);
 		void collectInfo(Environment&, Person*);
 		void logEvent(Environment&, const Event&);

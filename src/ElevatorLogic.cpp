@@ -47,6 +47,65 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Environment::All",		this, &ElevatorLogic::HandleAll);
 }
 
+int ElevatorLogic::getQueueLength(Elevator *ele, Floor* f)
+{
+	// on empty queue
+	if (elevators_[ele].queue.empty())
+	{
+		// get direct travel time to target
+		return getTravelTime(ele,ele->GetCurrentFloor(),f,true);
+	}
+
+	// if next move is the right direction
+	if (ele->GetCurrentFloor()->IsAbove(elevators_[ele].queue.front()) && ele->GetCurrentFloor()->IsAbove(f))
+	{
+		int result = 0;
+		auto i = elevators_[ele].queue.begin();
+		// compare with first element of queue
+		if
+		(
+			(getTravelTime(ele,ele->GetCurrentFloor(),*i) < getTravelTime(ele,ele->GetCurrentFloor(),f)) ||
+			(ele->GetCurrentFloor()->IsBelow(elevators_[ele].queue.front()) && ele->GetCurrentFloor()->IsBelow(f))
+		)
+		{
+			result += getTravelTime(ele,ele->GetCurrentFloor(),*i);
+			++i;
+		}
+		else
+		{
+			result += getTravelTime(ele,ele->GetCurrentFloor(),f);
+			return result;
+		}
+
+		// compare with second to second-to-last elements
+		while (i != elevators_[ele].queue.end())
+		{
+			auto j = i;
+			++j;
+			if (j != elevators_[ele].queue.end())
+			{
+				if (getTravelTime(ele,*i,*j) < getTravelTime(ele,*i,f))
+				{
+					result += getTravelTime(ele,*i,*j);
+				}
+				else
+				{
+					result += getTravelTime(ele,*i,f);
+					return result;
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		// last element has nothing to compare with, just add target at the end
+		result += getTravelTime(ele,*i,f);
+		return result;
+	}
+	return 0;
+}
 
 Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 {
@@ -71,6 +130,8 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 		set<Person*> passengers;
 		// empty queue
 		elevatorQueue queue;
+		elevatorQueue queueUp;
+		elevatorQueue queueDown;
 		// closed door and not moving
 		pair<Elevator*,ElevatorState> elevState = {ele,ELEV_DEFAULT_STATE};
 
@@ -130,7 +191,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		Elevator *ele = static_cast<Elevator*>(ref);
 		DEBUG
 		(
-			std::string state = "State unknown";
+			std::string state = "state unknown";
 			switch (ele->GetState())
 			{
 				// this should not happen
@@ -155,43 +216,34 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			(
 				"[Elevator " << ele->GetId() << "] Floor " << ele->GetCurrentFloor()->GetId() << " (" << ele->GetPosition() << "), " << state
 			);
-			if ((ele->GetState() == Elevator::Up || ele->GetState() == Elevator::Down) && elevators_[ele].doorState != Closed)
-			{
-
-				ostringstream result;
-				result << showTestCase() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved with open door!<br>\n" ;
-				throw std::runtime_error(result.str());
-			}
-			// else if (elevators_[ele].isMalfunction == true)
-			// {
-			// 	ostringstream result;
-			// 	result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved while malfunctioning!<br>\n" ;
-			// 	throw std::runtime_error(result.str());
-			// }
 		);
 
-		// stop if we're at the middle of any floor in the queue
-		elevatorQueue queue = elevators_[ele].queue;
-		DEBUG
-		(
-			// this should absolutely not happen
-			if (queue.empty())
-				{
-					DEBUG_S("no floor in queue");
-				}
-		);
-		elevatorQueue::iterator i = queue.begin();
-		for(; i != queue.end(); ++i)
+		// stop if we're at the middle of any floor in on of the queues
+		for(auto const &i : elevators_[ele].queueUp)
 		{
-			if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+			if (i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+			{
+				env.SendEvent("Elevator::Stop",0,this,ele);
+				return;
+			}
+		}
+		for(auto const &i : elevators_[ele].queueDown)
+		{
+			if (i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 			{
 				env.SendEvent("Elevator::Stop",0,this,ele);
 				return;
 			}
 		}
 
-		// otherwise continue movement and report back later
-		env.SendEvent("Interface::Notify",1,ele,ele);
+		// only check again later if we're actually moving
+		// otherwise we could get in trouble with malfunctions
+		if (moving_.count(ele) || movingUp_.count(ele) || movingDown_.count(ele))
+		{
+			// otherwise continue movement and report back later
+			env.SendEvent("Interface::Notify",1,ele,ele);
+		}
+
 	}
 	// handle person's call
 	else
@@ -234,16 +286,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 					". Distance: " << getDistance(ele->GetCurrentFloor(),personsFloor,ele->GetPosition()) <<
 					" ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),personsFloor)
 				);
-				// if it idles, send directly
-				if (!elevators_[ele].isBusy)
-				{
-					SendToFloor(env,personsFloor,ele);
-				}
-				// otherwise just add to queue
-				else
-				{
-					addToQueue(ele,personsFloor);
-				}
+				sendToFloor(env,personsFloor,ele);
 			}
 			// if none can come, try again next tick
 			else
@@ -259,14 +302,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			Elevator *ele = person->GetCurrentElevator();
 			// get target from the interface input
 			Floor *target = static_cast<Floor*>(loadable);
-			if (!elevators_[ele].isBusy)
-			{
-				SendToFloor(env,target,ele);
-			}
-			else
-			{
-				addToQueue(ele,target);
-			}
+			sendToFloor(env,target,ele);
 		}
 	}
 }
@@ -278,6 +314,8 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 
 	// original test suite
 	moving_.erase(ele);
+	movingUp_.erase(ele);
+	movingDown_.erase(ele);
 
 	// set this elevator to moving state
 	elevators_[ele].isBusy = true;
@@ -317,6 +355,9 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 	elevators_[ele].isBusy = false;
 	// remove floor from queue where we just opened the door
 	elevators_[ele].queue.remove(ele->GetCurrentFloor());
+	elevators_[ele].queueUp.remove(ele->GetCurrentFloor());
+	elevators_[ele].queueDown.remove(ele->GetCurrentFloor());
+
 	DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << ele->GetCurrentFloor()->GetId() << " from queue");
 }
 
@@ -341,22 +382,17 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 
 	elevators_[ele].doorState = Closed;
 	elevators_[ele].isBusy = false;
-	// get to the next floor in queue as quickly as possible
-	if (!elevators_[ele].queue.empty())
-	{
-		SendToFloor(env,elevators_[ele].queue.front(),ele);
-	}
 
+	// continue operation if possible
+	continueOperation(env,ele);
 }
 
 void ElevatorLogic::HandleUp(Environment &env, const Event &e)
 {
-
 }
 
 void ElevatorLogic::HandleDown(Environment &env, const Event &e)
 {
-
 }
 
 // react to elevators movement status
@@ -390,39 +426,23 @@ void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
 	if (iter->second <= ele->GetMaxLoad())
 	    throw std::runtime_error("An elevator started beeping although it was not overloaded");
 	beeping_.insert(ele);
-
-	// elevators_[ele].isBeeping = true;
-	// DEBUG
-	// (
-	// 	if (elevators_[ele].doorState == Closed)
-	// 	{
-	// 		ostringstream result;
-	// 		result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetCurrentFloor()->GetId() << " started beeping with door closed!<br>\n" ;
-	// 		throw std::runtime_error(result.str());
-	// 	}
-	// );
 }
+
 void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 
 	// original test suite
 	beeping_.erase(ele);
-	// elevators_[ele].isBeeping = false;
 	// continue normal operation
-	if (!elevators_[ele].queue.empty())
-	{
-		SendToFloor(env,elevators_[ele].queue.front(),ele);
-	}
+	continueOperation(env,ele);
 }
 
 void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	// original test suite
-	malfunctions_.insert(ele);
 
-	// elevators_[ele].isMalfunction = true;
+	malfunctions_.insert(ele);
 	// stop immediately
 	env.SendEvent("Elevator::Stop",0,this,ele);
 }
@@ -430,16 +450,9 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	// original test suite
 	malfunctions_.erase(ele);
-
-	//elevators_[ele].isMalfunction = false;
-
 	// continue normal operation
-	if (!elevators_[ele].queue.empty())
-	{
-		SendToFloor(env,elevators_[ele].queue.front(),ele);
-	}
+	continueOperation(env,ele);
 }
 
 void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
@@ -472,7 +485,7 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	// WARNING: just a dummy, we should actually continue our path
 	if (!elevators_[ele].queue.empty())
 	{
-		SendToFloor(env,elevators_[ele].queue.front(),ele);
+		sendToFloor(env,elevators_[ele].queue.front(),ele);
 	}
 }
 
@@ -510,59 +523,83 @@ void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 
 // send elevator into general direction of given floor
 // WARNING: does not check if floor is reachable.
-void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
+void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 {
 	DEBUG_S("Sending elevator " << ele->GetId() << " to floor " << target->GetId());
 	// find out current floor
 	Floor *current = ele->GetCurrentFloor();
 
-	addToQueue(ele,target);
-	if (current == target)
+	bool stoppedProperly = !moving_.count(ele) && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51;
+
+	// if already there and standing, open doors
+	if (current == target && stoppedProperly)
 	{
 		openDoor(env,ele);
 		elevators_[ele].isBusy = true;
 		return;
 	}
-	if (moving_.count(ele))
+
+	// if moving already, just add to queue (see below)
+	if (moving_.count(ele) || movingUp_.count(ele) || movingDown_.count(ele))
 	{
 		DEBUG_S("Already moving, do nothing");
 		return;
 	}
-	moving_.insert(ele);
-
-	// TODO: check again after 3 ticks if starting movement is already appropriate
-
-	// adjust delay depending on door state
-	// TODO: make it more elegant
-	int delay;
-	if (elevators_[ele].doorState == Closed)
-	{
-		DEBUG_S("Door closed, we're good to go");
-		delay = 0;
-	}
-	else if (elevators_[ele].doorState == Closing)
-	{
-		DEBUG_S("Door still closing, wait 3 ticks");
-		delay = 3;
-	}
+	// if idling somewhere else, send into right direction
 	else
 	{
-		DEBUG_S("Door opened, we should close it");
-		// close door before starting
-		closeDoor(env,ele);
-		delay = 3;
+		// TODO: check again after 3 ticks if starting movement is already appropriate
+
+		// adjust delay depending on door state
+		// TODO: make it more elegant
+		int delay;
+		if (elevators_[ele].doorState == Closed)
+		{
+			DEBUG_S("Door closed, we're good to go");
+			delay = 0;
+		}
+		else if (elevators_[ele].doorState == Closing)
+		{
+			DEBUG_S("Door still closing, wait 3 ticks");
+			delay = 3;
+		}
+		else
+		{
+			DEBUG_S("Door opened, we should close it");
+			// close door before starting
+			closeDoor(env,ele);
+			delay = 3;
+		}
+
+		// send into right direction
+		moving_.insert(ele);
+		if
+		(
+			(movingUp_.count(ele) && !elevators_[ele].queueUp.empty()) ||
+			(elevators_[ele].queueDown.empty() && current->IsAbove(target))
+		)
+		{
+			DEBUG_S("Target floor " << target->GetId() << " is above elevator's current floor " << current->GetId());
+			env.SendEvent("Elevator::Up",delay,this,ele);
+			movingUp_.insert(ele);
+		}
+		else if
+		(
+			(movingDown_.count(ele) && !elevators_[ele].queueDown.empty()) ||
+			(elevators_[ele].queueUp.empty() && current->IsBelow(target))
+		)
+		{
+			DEBUG_S("Target floor " << target->GetId() << " is below elevator's current floor " << current->GetId());
+			env.SendEvent("Elevator::Down",delay,this,ele);
+			movingDown_.insert(ele);
+		}
+		else
+		{
+			DEBUG_S("Oh no...");
+		}
 	}
-	// send into right direction
-	if (elevators_[ele].queue.front()->IsBelow(current))
-	{
-		DEBUG_S("Target floor " << target->GetId() << " is above elevator's current floor " << ele->GetCurrentFloor()->GetId());
-		env.SendEvent("Elevator::Up",delay,this,ele);
-	}
-	else
-	{
-		DEBUG_S("Target floor " << target->GetId() << " is below elevator's current floor " << ele->GetCurrentFloor()->GetId());
-		env.SendEvent("Elevator::Down",delay,this,ele);
-	}
+	// add target floor to queue in any case
+	addToQueue(ele,target);
 }
 
 void ElevatorLogic::openDoor(Environment &env, Elevator* ele)
@@ -581,12 +618,12 @@ void ElevatorLogic::openDoor(Environment &env, Elevator* ele)
 
 void ElevatorLogic::closeDoor(Environment &env, Elevator* ele)
 {
+	// only if not beeping
 	// only open door if stopped in the middle of a floor
-	bool beeping = elevators_[ele].isBeeping;
 	// only open door if it is already closed or currently closing
 	bool doorOpen = elevators_[ele].doorState == Opened || elevators_[ele].doorState == Opening;
 	// check if someone is entering or exiting
-	if (!beeping && doorOpen)
+	if (!beeping_.count(ele) && doorOpen)
 	{
 		//DEBUG_S("[Elevator " << ele->GetId() << "] Closing door");
 		env.SendEvent("Elevator::Close", 0, this, ele);
@@ -601,13 +638,41 @@ void ElevatorLogic::closeDoor(Environment &env, Elevator* ele)
  */
 void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 {
-	// get the elevator's queue
-	elevatorQueue &q = elevators_[ele].queue;
+	// insert into appropriate queue
+	elevatorQueue *q;
+	if (ele->GetCurrentFloor()->IsAbove(target))
+	{
+		 q = &elevators_[ele].queueUp;
+	}
+	else if (ele->GetCurrentFloor()->IsBelow(target))
+	{
+		q = &elevators_[ele].queueDown;
+	}
+	// if same floor, check movement direction
+	else
+	{
+		if (ele->GetPosition() < 0.49 && movingUp_.count(ele))
+		{
+			q = &elevators_[ele].queueUp;
+		}
+		else if (ele->GetPosition() > 0.51 && movingDown_.count(ele))
+		{
+			q = &elevators_[ele].queueDown;
+		}
+		// if never moved before and current = target
+		// thow an error, because this would be really bad and cannot even be
+		else
+		{
+			ostringstream msg;
+			msg << "Elevator " << ele->GetId() << " was about to add it's current floor to a queue without knowing the next moving direction. This should not happen.";
+			throw std::runtime_error(showTestCase() + eventlog + msg.str() );
+		}
+	}
 
 	// try just queueing floors FIFO style
-	if (std::find(q.begin(),q.end(),target) == q.end())
+	if (std::find(q->begin(),q->end(),target) == q->end())
 	{
-		q.push_back(target);
+		q->push_back(target);
 		DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
 	}
 	else
@@ -636,14 +701,14 @@ bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
 {
 	return
 	(
-		(ele->GetState() == Elevator::Up && ele->GetCurrentFloor()->IsAbove(target)) ||
-		(ele->GetState() == Elevator::Down && ele->GetCurrentFloor()->IsBelow(target)) ||
+		(movingUp_.count(ele) && ele->GetCurrentFloor()->IsAbove(target)) ||
+		(movingDown_.count(ele) && ele->GetCurrentFloor()->IsBelow(target)) ||
 		// if on the same floor
 		// otherwise same floor is recognized as lower
 		(ele->GetCurrentFloor() == target &&
 			(
-			(ele->GetPosition() > 0.51 && ele->GetState() == Elevator::Down) ||
-			(ele->GetPosition() < 0.49 && ele->GetState() == Elevator::Up)
+			(ele->GetPosition() > 0.51 && movingDown_.count(ele)) ||
+			(ele->GetPosition() < 0.49 && movingUp_.count(ele))
 			// || (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 			)
 		)
@@ -721,6 +786,29 @@ void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* targ
 	}
 	// if new floor is above all others, insert at the end
 	elevs.insert(i,ele);
+}
+
+void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
+{
+	if (elevators_[ele].queueUp.empty() && elevators_[ele].queueDown.empty())
+	{
+		DEBUG_S("[Elevator " << ele->GetId() << "] Both queues empty, nothing to do.");
+	}
+	// if there are upwards targets and we were either going there already or have nowhere to go down
+	else if
+	(
+		!elevators_[ele].queueUp.empty() &&
+		(movingUp_.count(ele) || (elevators_[ele].queueDown.empty() && movingDown_.count(ele)))
+	)
+	{
+		sendToFloor(env,elevators_[ele].queueUp.front(),ele);
+	}
+	// if there are downwards targets and we were either going there already or have nowhere to go up
+	// NOTE: also if we never started but have something in both queues, which should not happen
+	else
+	{
+		sendToFloor(env,elevators_[ele].queueDown.front(),ele);
+	}
 }
 
 DEBUG
