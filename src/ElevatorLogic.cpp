@@ -51,95 +51,177 @@ void ElevatorLogic::Initialize(Environment &env)
 // TODO: clean up decision on what to do for the elevator
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
-	// grab interface that sent notification
-	// notification can only come from an interface
-	Interface *interf = static_cast<Interface*>(e.GetSender());
-	// grab the person that interacted with the interface
-	// reference of a notification can only be a person
-	Person *person = static_cast<Person*>(e.GetEventHandler());
-
-	// play NSA on the test cases
-	DEBUG(collectInfo(env, person););
-
-	DEBUG_S
-	(
-		"Person " << person->GetId() <<
-		" (on Floor " << person->GetCurrentFloor()->GetId() << ")" <<
-		" wants to go to floor " << person->GetFinalFloor()->GetId()
-	);
-
-	// check if interface comes from inside an elevator or from a floor
-	// we see this from looking at the type of the interface's first loadable
-	Loadable *loadable = interf->GetLoadable(0);
-
-	// react to an interface interaction from outside the elevator
-	if (loadable->GetType() == "Elevator")
+	// find out who is calling
+	Entity *ref = static_cast<Entity*>(e.GetEventHandler());
+	// handle elevator movement
+	if (ref->GetType() == "Elevator")
 	{
-		Floor *personsFloor = person->GetCurrentFloor();
+		/*
+		(evil hack! we're misusing our ability to let the elevator send a message
+		and pretend it does so on its own. the only reason is that (AFAIK) we can't
+		do anything else to have a read-only interaction, since we can't declare
+		new events for this class)
+		 */
 
-		// TODO: sort all elevators at this floor by shortest path to caller
-		// Then pick the one that would work best.
-
-		// get all usable elevators that stop at this floor
-		list<Elevator*> elevs;
-		for(int i = 0; i < interf->GetLoadableCount(); i++)
-		{
-			// cast the loadables to elevator pointers
-			Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
-
-			// while we're at it, add these elevators to our global map
-			// using default values for its state:
-			// empty passenger list
-			set<Person*> passengers;
-			// empty queue
-			elevatorQueue queue;
-			// closed door and not moving
-			pair<Elevator*,ElevatorState> elevState = {ele,ELEV_DEFAULT_STATE};
-
-			// put it into the global map (doesn't do anything if already exists)
-			elevators_.insert(elevState);
-			// check if space left, non-blocked and either idle or on the way
-			if (getCapacity(ele) - person->GetWeight() >= 0 && (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor)))
+		// NOTE: we assume the sender of a movement event is always an elevator
+		Elevator *ele = static_cast<Elevator*>(ref);
+		DEBUG
+		(
+			std::string state = "State unknown";
+			switch (ele->GetState())
 			{
-				addToList(elevs,ele,personsFloor);
+				// this should not happen
+				case 0:
+					state = "idle";
+					break;
+				case 1:
+					state = "moving UP";
+					break;
+				case 2:
+					state = "moving DOWN";
+					break;
+				// this should absolutely never happen
+				case 3:
+					state = "MALFUNCTION!!!";
+					break;
+				default:
+					break;
+			}
+
+			DEBUG_S
+			(
+				"Current floor: " << ele->GetCurrentFloor()->GetId() << " (" << ele->GetPosition() << "), " << state
+			);
+			if (elevators_[ele].doorState != Closed)
+			{
+				ostringstream result;
+				result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved with open door!<br>\n" ;
+				throw std::runtime_error(result.str());
+			}
+			// else if (elevators_[ele].isMalfunction == true)
+			// {
+			// 	ostringstream result;
+			// 	result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved while malfunctioning!<br>\n" ;
+			// 	throw std::runtime_error(result.str());
+			// }
+		);
+
+		// stop if we're at the middle of any floor in the queue
+		elevatorQueue queue = elevators_[ele].queue;
+		DEBUG
+		(
+			// this should absolutely not happen
+			if (queue.empty())
+				{
+					DEBUG_S("no floor in queue");
+				}
+		);
+		elevatorQueue::iterator i = queue.begin();
+		for(; i != queue.end(); ++i)
+		{
+			if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+			{
+				env.SendEvent("Elevator::Stop",0,this,ele);
+				return;
 			}
 		}
 
-		if (!elevs.empty())
+		// otherwise continue movement and report back later
+		env.SendEvent("Interface::Notify",1,ele,ele);
+	}
+	// handle person's call
+	else
+	{
+		// grab interface that sent notification
+		// notification can only come from an interface
+		Interface *interf = static_cast<Interface*>(e.GetSender());
+		// grab the person that interacted with the interface
+		// reference of a notification can only be a person
+		Person *person = static_cast<Person*>(e.GetEventHandler());
+
+		// play NSA on the test cases
+		DEBUG(collectInfo(env, person););
+
+		DEBUG_S
+		(
+			"Person " << person->GetId() <<
+			" (on Floor " << person->GetCurrentFloor()->GetId() << ")" <<
+			" wants to go to floor " << person->GetFinalFloor()->GetId()
+		);
+
+		// check if interface comes from inside an elevator or from a floor
+		// we see this from looking at the type of the interface's first loadable
+		Loadable *loadable = interf->GetLoadable(0);
+
+		// react to an interface interaction from outside the elevator
+		if (loadable->GetType() == "Elevator")
 		{
-			DEBUG_S("Using elevator " << elevs.front()->GetId() << " at floor " << elevs.front()->GetCurrentFloor()->GetId() <<
-			". Distance: " << getDistance(elevs.front()->GetCurrentFloor(),personsFloor,elevs.front()->GetPosition()) << " ETA: " << getTravelTime(elevs.front(),elevs.front()->GetCurrentFloor(),personsFloor));
-			if (!elevators_[elevs.front()].isBusy)
+			Floor *personsFloor = person->GetCurrentFloor();
+
+			// TODO: sort all elevators at this floor by shortest path to caller
+			// Then pick the one that would work best.
+
+			// get all usable elevators that stop at this floor
+			list<Elevator*> elevs;
+			for(int i = 0; i < interf->GetLoadableCount(); i++)
 			{
-				SendToFloor(env,personsFloor,elevs.front());
+				// cast the loadables to elevator pointers
+				Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
+
+				// while we're at it, add these elevators to our global map
+				// using default values for its state:
+				// empty passenger list
+				set<Person*> passengers;
+				// empty queue
+				elevatorQueue queue;
+				// closed door and not moving
+				pair<Elevator*,ElevatorState> elevState = {ele,ELEV_DEFAULT_STATE};
+
+				// put it into the global map (doesn't do anything if already exists)
+				elevators_.insert(elevState);
+				// check if space left, non-blocked and either idle or on the way
+				if (getCapacity(ele) - person->GetWeight() >= 0 && (ele->GetState() == Elevator::Idle || onTheWay(ele,personsFloor)))
+				{
+					addToList(elevs,ele,personsFloor);
+				}
+			}
+
+			if (!elevs.empty())
+			{
+				DEBUG_S("Using elevator " << elevs.front()->GetId() << " at floor " << elevs.front()->GetCurrentFloor()->GetId() <<
+				". Distance: " << getDistance(elevs.front()->GetCurrentFloor(),personsFloor,elevs.front()->GetPosition()) << " ETA: " << getTravelTime(elevs.front(),elevs.front()->GetCurrentFloor(),personsFloor));
+				if (!elevators_[elevs.front()].isBusy)
+				{
+					SendToFloor(env,personsFloor,elevs.front());
+				}
+				else
+				{
+					addToQueue(elevs.front(),personsFloor);
+				}
+
+				return;
+			}
+
+			// if none can come, try again next tick
+			env.SendEvent("Interface::Notify",1,interf,person);
+			DEBUG_S("No free elevator found, trying again later.");
+
+		}
+		// react to an interface interaction from inside the elevator
+		else
+		{
+			// get our current elevator by asking the person where it is
+			Elevator *ele = person->GetCurrentElevator();
+			// get target from the interface input
+			Floor *target = static_cast<Floor*>(loadable);
+			if (!elevators_[ele].isBusy)
+			{
+				SendToFloor(env,target,ele);
 			}
 			else
 			{
-				addToQueue(elevs.front(),personsFloor);
+				addToQueue(ele,target);
 			}
-
-			return;
-		}
-
-		// if none can come, try again next tick
-		env.SendEvent("Interface::Notify",1,interf,person);
-		DEBUG_S("No free elevator found, trying again later.");
-
-	}
-	// react to an interface interaction from inside the elevator
-	else
-	{
-		// get our current elevator by asking the person where it is
-		Elevator *ele = person->GetCurrentElevator();
-		// get target from the interface input
-		Floor *target = static_cast<Floor*>(loadable);
-		if (!elevators_[ele].isBusy)
-		{
-			SendToFloor(env,target,ele);
-		}
-		else
-		{
-			addToQueue(ele,target);
 		}
 	}
 }
@@ -224,78 +306,6 @@ void ElevatorLogic::HandleDown(Environment &env, const Event &e)
 // react to elevators movement status
 void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 {
-	/*
-	(evil hack! we're misusing our ability to let the elevator send a message
-	and pretend it does so on its own. the only reason is that (AFAIK) we can't
-	do anything else to have a read-only interaction, since we can't declare
-	new events for this class)
-	 */
-
-	// NOTE: we assume the sender of a movement event is always an elevator
-	Elevator *ele = static_cast<Elevator*>(e.GetSender());
-	DEBUG
-	(
-		std::string state = "State unknown";
-		switch (ele->GetState())
-		{
-			// this should not happen
-			case 0:
-				state = "idle";
-				break;
-			case 1:
-				state = "moving UP";
-				break;
-			case 2:
-				state = "moving DOWN";
-				break;
-			// this should absolutely never happen
-			case 3:
-				state = "MALFUNCTION!!!";
-				break;
-			default:
-				break;
-		}
-
-		DEBUG_S
-		(
-			"Current floor: " << ele->GetCurrentFloor()->GetId() << " (" << ele->GetPosition() << "), " << state
-		);
-		if (elevators_[ele].doorState != Closed)
-		{
-			ostringstream result;
-			result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved with open door!<br>\n" ;
-			throw std::runtime_error(result.str());
-		}
-		// else if (elevators_[ele].isMalfunction == true)
-		// {
-		// 	ostringstream result;
-		// 	result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved while malfunctioning!<br>\n" ;
-		// 	throw std::runtime_error(result.str());
-		// }
-	);
-
-	// stop if we're at the middle of any floor in the queue
-	elevatorQueue queue = elevators_[ele].queue;
-	DEBUG
-	(
-		// this should absolutely not happen
-		if (queue.empty())
-			{
-				DEBUG_S("no floor in queue");
-			}
-	);
-	elevatorQueue::iterator i = queue.begin();
-	for(; i != queue.end(); ++i)
-	{
-		if (*i == ele->GetCurrentFloor() && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
-		{
-			env.SendEvent("Elevator::Stop",0,this,ele);
-			return;
-		}
-	}
-
-	// otherwise continue movement and report back later
-	env.SendEvent("Elevator::Moving",1,ele,ele);
 }
 
 void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
@@ -450,6 +460,7 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 		DEBUG_S("Target floor " << target->GetId() << " is below elevator's current floor " << ele->GetCurrentFloor()->GetId());
 		env.SendEvent("Elevator::Down",delay,this,ele);
 	}
+	env.SendEvent("Interface::Notify",delay,ele,ele);
 }
 
 void ElevatorLogic::openDoor(Environment &env, Elevator* ele)
