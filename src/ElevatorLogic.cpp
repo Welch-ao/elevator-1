@@ -92,8 +92,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			(
 				"Current floor: " << ele->GetCurrentFloor()->GetId() << " (" << ele->GetPosition() << "), " << state
 			);
-			if (elevators_[ele].doorState != Closed)
+			if ((ele->GetState() == Elevator::Up || ele->GetState() == Elevator::Down) && elevators_[ele].doorState != Closed)
 			{
+				DEBUG_V((ele->GetState() == Elevator::Up));
+				DEBUG_V((ele->GetState() == Elevator::Down));
 				ostringstream result;
 				result << showFloors() << showElevators() << showPersons() << showInterfaces() << eventlog << "[" << env.GetClock() << "] Elevator " << ele->GetId() << " moved with open door!<br>\n" ;
 				throw std::runtime_error(result.str());
@@ -460,7 +462,7 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 		DEBUG_S("Target floor " << target->GetId() << " is below elevator's current floor " << ele->GetCurrentFloor()->GetId());
 		env.SendEvent("Elevator::Down",delay,this,ele);
 	}
-	env.SendEvent("Interface::Notify",delay,ele,ele);
+	env.SendEvent("Interface::Notify",delay+1,ele,ele);
 }
 
 void ElevatorLogic::openDoor(Environment &env, Elevator* ele)
