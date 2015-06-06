@@ -10,6 +10,7 @@
 #include <iostream>
 #include <sstream>
 #include <cmath>
+#include <algorithm>
 
 #include "Interface.h"
 #include "Person.h"
@@ -348,8 +349,6 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 
 	elevators_[ele].passengers.insert(person);
 	elevators_[ele].isBusy = false;
-
-
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
@@ -375,7 +374,7 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 
 	// do not track deadlines anymore
 	Person *person = static_cast<Person*>(e.GetSender());
-	DEBUG_S("Person " << person->GetId() << " waited " << deadlines_[person]);
+	DEBUG_S("Person " << person->GetId() << " had " << deadlines_[person] << " ticks left.");
 	if (getCapacity(ele) - person->GetWeight() < 0)
 	{
 		DEBUG_S("Elevator " << ele->GetId() << " will be overloaded if person enters!");
@@ -400,6 +399,7 @@ void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 // WARNING: does not check if floor is reachable.
 void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 {
+	DEBUG_S("Sending elevator " << ele->GetId() << " to floor " << target->GetId());
 	// find out current floor
 	Floor *current = ele->GetCurrentFloor();
 
@@ -491,39 +491,16 @@ void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 	// get the elevator's queue
 	elevatorQueue &q = elevators_[ele].queue;
 
-	/*// if queue empty, just add the new floor together with person to queue
-	if (q.empty())
-	{
-		q.push_front(target);
-		DEBUG_S("Added floor " << target->GetId() << " to queue of Elevator " << ele->GetId());
-		return;
-	}
-
-	// otherwise find the right position to insert
-	// NOTE: queue is sorted by floors ordered from lowest to highest
-	elevatorQueue::iterator i = q.begin();
-	for(; i != q.end(); ++i)
-	{
-		// if floor is already in queue
-		if ((*i) == target)
-		{
-			// do nothing
-			DEBUG_S("Floor " << target->GetId() << " already in queue of Elevator " << ele->GetId());
-			return;
-		}
-		// if queued floor is above given floor
-		else if ((*i)->IsAbove(target))
-		{
-			// the insert happens after the loop anyway
-			break;
-		}
-	}
-	// if new floor is above all others, insert at the end
-	q.insert(i,target);*/
-
 	// try just queueing floors FIFO style
-	q.push_back(target);
-	DEBUG_S("Added floor " << target->GetId() << " to queue of Elevator " << ele->GetId());
+	if (std::find(q.begin(),q.end(),target) == q.end())
+	{
+		q.push_back(target);
+		DEBUG_S("Added floor " << target->GetId() << " to queue of elevator " << ele->GetId());
+	}
+	else
+	{
+		DEBUG_S("Floor " << target->GetId() << " already in queue of elevator " << ele->GetId());
+	}
 }
 
 // get free space of given elevator
