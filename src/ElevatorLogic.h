@@ -84,7 +84,6 @@ public:
 	{
 		bool isBusy;
 		DoorState doorState;
-		bool isMoving;
 		set<Person*> passengers;
 		elevatorQueue queue;
 		bool isBeeping;

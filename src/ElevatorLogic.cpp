@@ -85,7 +85,7 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 		// get idles from current floor
 		for(auto const &ele : elevs)
 		{
-			if (!elevators_[ele].isMoving || onTheWay(ele,personsFloor))
+			if (!moving_.count(ele) || onTheWay(ele,personsFloor))
 			{
 				DEBUG_S("Using elevator " << ele->GetId() << " idling at floor " << ele->GetCurrentFloor()->GetId());
 				return ele;
@@ -280,7 +280,6 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 	moving_.erase(ele);
 
 	// set this elevator to moving state
-	elevators_[ele].isMoving = false;
 	elevators_[ele].isBusy = true;
 
 	// only open doors if we're at the middle of a floor
@@ -352,17 +351,12 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 
 void ElevatorLogic::HandleUp(Environment &env, const Event &e)
 {
-	// Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	// elevators_[ele].isMoving = true;
-	// elevators_[ele].isBusy = false;
 
 }
 
 void ElevatorLogic::HandleDown(Environment &env, const Event &e)
 {
-	// Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-	// elevators_[ele].isMoving = true;
-	// elevators_[ele].isBusy = false;
+
 }
 
 // react to elevators movement status
@@ -392,9 +386,9 @@ void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
 	    throw std::runtime_error("An elevator started beeping while its doors were closed");
 	auto iter = loads_.find(ele);
 	if (iter == loads_.end())
-	    throw std::runtime_error("An elevator started elevator although it was not overloaded");
+	    throw std::runtime_error("An elevator started beeping although it was not overloaded");
 	if (iter->second <= ele->GetMaxLoad())
-	    throw std::runtime_error("An elevator started elevator although it was not overloaded");
+	    throw std::runtime_error("An elevator started beeping although it was not overloaded");
 	beeping_.insert(ele);
 
 	// elevators_[ele].isBeeping = true;
@@ -529,12 +523,12 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 		elevators_[ele].isBusy = true;
 		return;
 	}
-	if (elevators_[ele].isMoving)
+	if (moving_.count(ele))
 	{
 		DEBUG_S("Already moving, do nothing");
 		return;
 	}
-	elevators_[ele].isMoving = true;
+	moving_.insert(ele);
 
 	// TODO: check again after 3 ticks if starting movement is already appropriate
 
@@ -574,7 +568,7 @@ void ElevatorLogic::SendToFloor(Environment &env, Floor *target, Elevator *ele)
 void ElevatorLogic::openDoor(Environment &env, Elevator* ele)
 {
 	// only open door if stopped in the middle of a floor
-	bool stoppedProperly = !elevators_[ele].isMoving && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51;
+	bool stoppedProperly = !moving_.count(ele) && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51;
 	// only open door if it is already closed or currently closing
 	bool doorClosed = elevators_[ele].doorState == Closed || elevators_[ele].doorState == Closing;
 
