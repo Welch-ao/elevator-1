@@ -52,6 +52,7 @@
 #include <list>
 #include <map>
 #include <set>
+#include <chrono>
 
 using namespace std;
 
@@ -120,7 +121,7 @@ private:
 	void HandleExiting(Environment &env, const Event &e);
 	void HandleEntered(Environment &env, const Event &e);
 	void HandleExited(Environment &env, const Event &e);
-
+	void HandleInteract(Environment &env, const Event &e);
 
 	/*** helper functions ***/
 	// send elevator to given floor
@@ -158,6 +159,7 @@ private:
 	string showPersons();
 	string showElevators();
 	string showInterfaces();
+	// last time we checked
 	int tick;
 	);
 
@@ -168,11 +170,16 @@ private:
 	map<Elevator*,int> allElevators;
 	// persons with their deadlines
 	std::map<Person*,int> deadlines_;
+	std::map<Elevator*,int> loads_;
 
 	DEBUG
 	(
+		std::set<Elevator*> moving_;
+		std::set<Elevator*> open_;
+		std::set<Elevator*> beeping_;
+		std::set<Elevator*> malfunctions_;
+		std::chrono::steady_clock::time_point start;
 		void HandleAll(Environment &env, const Event &e);
-		void checkTimer(Environment&, Person *person);
 		void collectInfo(Environment&, Person*);
 		void logEvent(Environment&, const Event&);
 	);
