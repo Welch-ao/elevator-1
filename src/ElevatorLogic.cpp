@@ -148,7 +148,17 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 		{
 			if (!moving_.count(ele) || onTheWay(ele,personsFloor))
 			{
-				DEBUG_S("Using elevator " << ele->GetId() << " idling at floor " << ele->GetCurrentFloor()->GetId());
+				DEBUG
+				(
+					if (!moving_.count(ele))
+					{
+						DEBUG_S("Using elevator " << ele->GetId() << " idling at floor " << ele->GetCurrentFloor()->GetId());
+					}
+					else if (onTheWay(ele,personsFloor))
+					{
+						DEBUG_S("Using elevator " << ele->GetId() << " on the way at floor " << ele->GetCurrentFloor()->GetId());
+					}
+				);
 				return ele;
 			}
 		}
@@ -533,7 +543,7 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 		DEBUG_S("Already moving, do nothing");
 	}
 	// if idling somewhere else, send into right direction
-	else
+	else if (!elevators_[ele].isBusy)
 	{
 		// TODO: check again after 3 ticks if starting movement is already appropriate
 
@@ -568,12 +578,14 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 		{
 			DEBUG_S("Target floor " << target->GetId() << " is above elevator's current floor " << current->GetId());
 			env.SendEvent("Elevator::Up",delay,this,ele);
+			movingDown_.erase(ele);
 			movingUp_.insert(ele);
 		}
 		else
 		{
 			DEBUG_S("Target floor " << target->GetId() << " is below elevator's current floor " << current->GetId());
 			env.SendEvent("Elevator::Down",delay,this,ele);
+			movingUp_.erase(ele);
 			movingDown_.insert(ele);
 		}
 	}
@@ -616,14 +628,14 @@ void ElevatorLogic::closeDoor(Environment &env, Elevator* ele)
 void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 {
 	Floor *current = ele->GetCurrentFloor();
-	bool exists = false;
+	bool added = false;
 	// insert into appropriate queue
 	if (current->IsAbove(target) || (current == target && ele->GetPosition() < 0.49 && movingUp_.count(ele)))
 	{
-		exists = elevators_[ele].queueUp.insert(target).second;
+		added = elevators_[ele].queueUp.insert(target).second;
 		DEBUG
 		(
-			if (exists)
+			if (added)
 			{
 				DEBUG_S("[Elevator " << ele->GetId() << "] adding to up queue");
 			}
@@ -632,10 +644,10 @@ void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 	}
 	else if (current->IsBelow(target) || (current == target && ele->GetPosition() > 0.51 && movingDown_.count(ele)))
 	{
-		exists = elevators_[ele].queueDown.insert(target).second;
+		added = elevators_[ele].queueDown.insert(target).second;
 		DEBUG
 		(
-			if (exists)
+			if (added)
 			{
 				DEBUG_S("[Elevator " << ele->GetId() << "] adding to down queue");
 			}
@@ -645,17 +657,17 @@ void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 	// WARNING: this only works because handleOpened deletes the floor from both
 	else if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 	{
-		exists = elevators_[ele].queueDown.insert(target).second;
+		added = elevators_[ele].queueDown.insert(target).second;
 		DEBUG
 		(
-			if (exists)
+			if (added)
 			{
 				DEBUG_S("[Elevator " << ele->GetId() << "] adding to down queue");
 			}
-		);		exists = elevators_[ele].queueUp.insert(target).second;
+		);		added = elevators_[ele].queueUp.insert(target).second;
 		DEBUG
 		(
-			if (exists)
+			if (added)
 			{
 				DEBUG_S("[Elevator " << ele->GetId() << "] adding to up queue");
 			}
