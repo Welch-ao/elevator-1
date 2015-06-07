@@ -288,10 +288,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		if
 		(
 			(
-				(movingUp_.count(ele) && elevators_[ele].queueUp.count(ele->GetCurrentFloor())) ||
-				(movingDown_.count(ele) && elevators_[ele].queueDown.count(ele->GetCurrentFloor()))
-			)
-			&& (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+				elevators_[ele].queueUp.count(ele->GetCurrentFloor()) ||
+				elevators_[ele].queueDown.count(ele->GetCurrentFloor())
+			) &&
+			(ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 		)
 		{
 			env.SendEvent("Elevator::Stop",0,this,ele);
@@ -406,7 +406,7 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 	elevators_[ele].queueUp.erase(ele->GetCurrentFloor());
 	elevators_[ele].queueDown.erase(ele->GetCurrentFloor());
 
-	closeDoor(env,ele,1);
+	closeDoor(env,ele,0);
 	DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << ele->GetCurrentFloor()->GetId() << " from queue");
 }
 
@@ -432,8 +432,15 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 	elevators_[ele].doorState = Closed;
 	elevators_[ele].isBusy = false;
 
-	// continue operation if possible
-	continueOperation(env,ele);
+	if (loads_[ele] > ele->GetMaxLoad())
+	{
+		openDoor(env,ele);
+	}
+	else
+	{
+		// continue operation if possible
+		continueOperation(env,ele);
+	}
 }
 
 void ElevatorLogic::HandleUp(Environment &env, const Event &e)
@@ -535,12 +542,16 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 		if (!beeping_.count(ele))
 		{
 			beeping_.insert(ele);
-			env.SendEvent("Elevator::Beep",1,this,ele);
+			env.SendEvent("Elevator::Beep",3,this,ele);
 		}
 	}
 	else
 	{
-		closeDoor(env,ele,1);
+		closeDoor(env,ele,0);
+	}
+	if (ele->HasFloor(person->GetFinalFloor()))
+	{
+		addToQueue(ele,person->GetFinalFloor());
 	}
 }
 
@@ -561,7 +572,7 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	}
 	else
 	{
-		closeDoor(env,ele,1);
+		closeDoor(env,ele,0);
 	}
 
 	// if all persons have reached their destination, leak the test case and exit successfully
@@ -572,7 +583,7 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	// 		return;
 	// 	}
 	// }
-	// cerr << showTestCase() << eventlog << "All Persons reached their final floor" << endl;
+	// cout << showTestCase() << eventlog << "All Persons reached their final floor" << endl;
 	// exit(0);
 }
 
@@ -655,6 +666,10 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 	{
 		DEBUG_S("Busy, do nothing");
 	}
+	else if (loads_[ele] > ele->GetMaxLoad())
+	{
+		DEBUG_S("Overloaded, do nothing");
+	}
 	// if idling somewhere else, send into right direction
 	else
 	{
@@ -702,6 +717,19 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 			movingDown_.insert(ele);
 		}
 	}
+	DEBUG(
+		DEBUG_S("Up queue:");
+
+		for (auto const &f : elevators_[ele].queueUp)
+		{
+			DEBUG_S(f->GetId());
+		});
+	DEBUG(
+		DEBUG_S("Down queue:");
+		for (auto const &f : elevators_[ele].queueDown)
+		{
+			DEBUG_S(f->GetId());
+		});
 }
 
 void ElevatorLogic::openDoor(Environment &env, Elevator* ele, int delay)
@@ -771,7 +799,7 @@ void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 		(
 			if (added)
 			{
-				DEBUG_S("[Elevator " << ele->GetId() << "] adding to up queue");
+				DEBUG_S("[Elevator " << ele->GetId() << "] adding floor " << target->GetId() << " to up queue");
 			}
 		);
 
@@ -783,29 +811,57 @@ void ElevatorLogic::addToQueue(Elevator *ele, Floor *target)
 		(
 			if (added)
 			{
-				DEBUG_S("[Elevator " << ele->GetId() << "] adding to down queue");
+				DEBUG_S("[Elevator " << ele->GetId() << "] adding floor " << target->GetId() << " to down queue");
 			}
 		);
 	}
 	// if same floor, add to both queues
 	// WARNING: this only works because handleOpened deletes the floor from both
-	else if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+	else if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51 && !movingDown_.count(ele) && !movingUp_.count(ele))
 	{
 		added = elevators_[ele].queueDown.insert(target).second;
 		DEBUG
 		(
 			if (added)
 			{
-				DEBUG_S("[Elevator " << ele->GetId() << "] adding to down queue");
+				DEBUG_S("[Elevator " << ele->GetId() << "] adding floor " << target->GetId() << " to down queue");
 			}
-		);		added = elevators_[ele].queueUp.insert(target).second;
+		);
+		added = elevators_[ele].queueUp.insert(target).second;
 		DEBUG
 		(
 			if (added)
 			{
-				DEBUG_S("[Elevator " << ele->GetId() << "] adding to up queue");
+				DEBUG_S("[Elevator " << ele->GetId() << "] adding floor " << target->GetId() << " to up queue");
 			}
-		);	}
+		);
+	}
+	else if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+	{
+		if (movingDown_.count(ele))
+		{
+			added = elevators_[ele].queueUp.insert(target).second;
+			DEBUG
+			(
+				if (added)
+				{
+					DEBUG_S("[Elevator " << ele->GetId() << "] adding floor " << target->GetId() << " to up queue");
+				}
+			);
+		}
+		else
+		{
+			added = elevators_[ele].queueDown.insert(target).second;
+			DEBUG
+			(
+				if (added)
+				{
+					DEBUG_S("[Elevator " << ele->GetId() << "] adding floor " << target->GetId() << " to down queue");
+				}
+			);
+		}
+
+	}
 	else
 	{
 		ostringstream msg;
@@ -964,10 +1020,10 @@ DEBUG
 			tick = env.GetClock();
 		}
 		// abort after fixed time
-		// if (env.GetClock() == 119)
-		// {
-		//		throw std::runtime_error(showTestCase() + eventlog + "Why does this not work?!);
-		// }
+		if (env.GetClock() == 118)
+		{
+				throw std::runtime_error(showTestCase() + eventlog + "You must be kidding me");
+		}
 	}
 
 	void ElevatorLogic::HandleInteract(Environment &env, const Event &e)
