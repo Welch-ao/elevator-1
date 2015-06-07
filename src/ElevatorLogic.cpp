@@ -50,8 +50,8 @@ void ElevatorLogic::Initialize(Environment &env)
 
 int ElevatorLogic::getQueueLength(Elevator *ele, Floor* f)
 {
-	// on empty queue
-	if (elevators_[ele].queueUp.empty() && elevators_[ele].queueDown.empty())
+	// on empty queue or unmoved elevator
+	if ((elevators_[ele].queueUp.empty() && elevators_[ele].queueDown.empty()) || (!movingUp_.count(ele) && !movingDown_.count(ele)))
 	{
 		// get direct travel time to target
 		return getTravelTime(ele,ele->GetCurrentFloor(),f,true);
@@ -75,7 +75,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* f)
 		}
 		result += getTravelTime(ele,prev,f);
 	}
-	else if (movingDown_.count(ele) && ele->GetCurrentFloor()->IsBelow(f))
+	else if (movingDown_.count(ele) && onTheWay(ele,f))
 	{
 		Floor *prev = ele->GetCurrentFloor();
 		Floor *cur = ele->GetCurrentFloor();
@@ -153,6 +153,13 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* f)
 	else
 	{
 		DEBUG_S("Case not considered");
+		DEBUG_V(ele->GetId());
+		DEBUG_V(onTheWay(ele,f));
+		DEBUG_V(elevators_[ele].queueUp.empty());
+		DEBUG_V(elevators_[ele].queueDown.empty());
+		DEBUG_V(moving_.count(ele));
+		DEBUG_V(movingUp_.count(ele));
+		DEBUG_V(movingDown_.count(ele));
 	}
 	return result;
 }
@@ -196,7 +203,7 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 		// get idles from current floor
 		for(auto const &ele : elevs)
 		{
-			if (!moving_.count(ele) || onTheWay(ele,personsFloor))
+			if ((!moving_.count(ele) || onTheWay(ele,personsFloor)) && !malfunctions_.count(ele))
 			{
 				DEBUG
 				(
@@ -294,7 +301,11 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// otherwise continue movement and report back later
 		else
 		{
-			env.SendEvent("Interface::Notify",1,ele,ele);
+			if (!malfunctions_.count(ele))
+			{
+				env.SendEvent("Interface::Notify",1,ele,ele);
+			}
+
 		}
 
 	}
@@ -365,21 +376,10 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	// set this elevator to moving state
 	moving_.erase(ele);
 
-	// only open doors if we're at the middle of a floor
-	if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
-	{
-		openDoor(env,ele);
-	}
-	DEBUG
-	(
-		else
-		{
-			DEBUG_S("ERROR: Elevator stopped at Floor " << ele->GetCurrentFloor()->GetId() << " in illegal position! What now?");
-		}
-	);
+	elevators_[ele].isBusy = true;
+	openDoor(env,ele);
 }
 
 // update elevator state when something happens with the door
@@ -418,6 +418,8 @@ void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 	// original test suite
     if (beeping_.count(ele))
         throw std::runtime_error("An elevator closed the doors while it was beeping");
+	elevators_[ele].doorState = Closing;
+	elevators_[ele].isBusy = true;
 }
 
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
@@ -477,6 +479,8 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
+	elevators_[ele].isBusy = false;
+
 	// original test suite
 	beeping_.erase(ele);
 	DEBUG_S("Persons on board:");
@@ -490,22 +494,26 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 
 void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 {
-	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	allEvents.push_back(e);
 	DEBUG_S("[NSA]: Tracking malfunction");
 
 	malfunctions_.insert(ele);
-	// stop immediately
-	env.SendEvent("Elevator::Stop",0,this,ele);
+	// stop immediately if moving
+	if (moving_.count(ele))
+	{
+		env.SendEvent("Elevator::Stop",0,this,ele);
+	}
 }
 
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 {
-	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
 	allEvents.push_back(e);
 	DEBUG_S("[NSA]: Tracking fixed");
 
+	elevators_[ele].isBusy = false;
 	malfunctions_.erase(ele);
 	// continue normal operation
 	continueOperation(env,ele);
@@ -535,26 +543,16 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	elevators_[ele].isBusy = false;
 	if (loads_[ele] > ele->GetMaxLoad())
 	{
-
-		// check if someone is entering or exiting
-		if (elevators_[ele].doorState == Opened)
+		openDoor(env,ele);
+		if (!beeping_.count(ele))
 		{
-			DEBUG_S("[Elevator " << ele->GetId() << "] Overloaded!");
-			env.SendEvent("Elevator::Beep",0,ele,ele);
+			beeping_.insert(ele);
+			env.SendEvent("Elevator::Beep",1,this,ele);
 		}
-		else if (elevators_[ele].doorState != Opened)
-		{
-			DEBUG_S("[Elevator " << ele->GetId() << "] Overloaded, opening door.");
-			openDoor(env,ele,1);
-			env.SendEvent("Elevator::Beep",3,ele,ele);
-		}
-		beeping_.insert(ele);
-
 	}
 	else
 	{
-		DEBUG_S("[Elevator " << ele->GetId() << "] Person entered, closing door");
-		closeDoor(env,ele);
+		closeDoor(env,ele,1);
 	}
 
 }
@@ -571,12 +569,26 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	elevators_[ele].passengers.erase(person);
 	DEBUG_S("Setting idle");
 	elevators_[ele].isBusy = false;
-	DEBUG_S("[Elevator " << ele->GetId() << "] Person exited, what to do?");
+
 	if (beeping_.count(ele) && loads_[ele] <= ele->GetMaxLoad())
 	{
-		beeping_.erase(ele);
-		env.SendEvent("Elevator::StopBeep",0,ele,ele);
+		env.SendEvent("Elevator::StopBeep",0,this,ele);
 	}
+	else
+	{
+		closeDoor(env,ele,1);
+	}
+
+	// if all persons have reached their destination, leak the test case and exit successfully
+	// for (auto i : allPersons)
+	// {
+	// 	if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
+	// 	{
+	// 		return;
+	// 	}
+	// }
+	// cerr << showTestCase() << eventlog << "All Persons reached their final floor" << endl;
+	// exit(0);
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -584,11 +596,19 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	Person *person = static_cast<Person*>(e.GetSender());
 
-	DEBUG_S("Setting busy");
-
 	elevators_[ele].isBusy = true;
 
-	//do not track deadlines anymore
+	DEBUG_S("[Person " << person->GetId() << "] Had " << (deadlines_[person]-e.GetTime()) << " ticks left");
+	if (doorEvents_.count(ele))
+	{
+		if (!env.CancelEvent(doorEvents_[ele]))
+		{
+			DEBUG_S("Cancelling event failed, do nothing");
+			return;
+		}
+	}
+	closeDoor(env,ele,0);
+
 	deadlines_.erase(deadlines_.find(person));
 }
 
@@ -598,6 +618,12 @@ void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 	DEBUG_S("Setting busy");
 
 	elevators_[ele].isBusy = true;
+
+	if (!env.CancelEvent(doorEvents_[ele]))
+	{
+		DEBUG_S("Cancelling event failed, do nothing");
+		return;
+	}
 
 	closeDoor(env,ele);
 }
@@ -628,13 +654,16 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 	{
 		DEBUG_S("Already moving, do nothing");
 	}
-	else if (loads_[ele] > ele->GetMaxLoad())
+	else if (malfunctions_.count(ele))
 	{
-		DEBUG_S("Overloaded! Do not move.");
-
+		DEBUG_S("Malfunctioning, do nothing");
+	}
+	else if (elevators_[ele].isBusy)
+	{
+		DEBUG_S("Busy, do nothing");
 	}
 	// if idling somewhere else, send into right direction
-	else if (!elevators_[ele].isBusy)
+	else
 	{
 
 		// TODO: check again after 3 ticks if starting movement is already appropriate
@@ -699,11 +728,26 @@ void ElevatorLogic::openDoor(Environment &env, Elevator* ele, int delay)
 
 	if (stoppedProperly && doorClosed)
 	{
-		env.SendEvent("Elevator::Open", delay, this, ele);
-		elevators_[ele].doorState = Opening;
-		DEBUG_S("Setting busy");
-		elevators_[ele].isBusy = true;
+		// store next door event
+		// if one exists already, cancel it
+		if (doorEvents_.count(ele))
+		{
+			env.CancelEvent(doorEvents_[ele]);
+			doorEvents_.erase(ele);
+		}
+		doorEvents_.insert(make_pair(ele,env.SendEvent("Elevator::Open", delay, this, ele)));
 	}
+	DEBUG
+	(
+		else if (malfunctions_.count(ele))
+		{
+			DEBUG_S("[Elevator " << ele-> GetId() << "] Malfunctioning. Not opening doors.");
+		}
+		else
+		{
+			DEBUG_S("[Elevator " << ele-> GetId() << "] Stopped at floor " << ele->GetCurrentFloor()->GetId() << " in illegal position! Not opening doors.");
+		}
+	);
 	// TODO: If door is closing, delay everything somehow until the door is open.
 }
 
@@ -716,18 +760,12 @@ void ElevatorLogic::closeDoor(Environment &env, Elevator* ele, int delay)
 	// check if someone is entering or exiting
 	if (!(loads_[ele] > ele->GetMaxLoad()) && doorOpen)
 	{
-		env.SendEvent("Elevator::Close", delay, this, ele);
-		elevators_[ele].doorState = Closing;
-		DEBUG_S("Setting busy");
-		elevators_[ele].isBusy = true;
-	}
-	else
-	{
-		DEBUG_S("WHAT NOW");
-		DEBUG_V((loads_[ele] > ele->GetMaxLoad()));
-		DEBUG_V((elevators_[ele].doorState == Closing));
-		DEBUG_V((elevators_[ele].doorState == Opened));
-
+		if (doorEvents_.count(ele))
+		{
+			env.CancelEvent(doorEvents_[ele]);
+			doorEvents_.erase(ele);
+		}
+		doorEvents_.insert(make_pair(ele,env.SendEvent("Elevator::Close", delay, this, ele)));
 	}
 }
 
@@ -940,6 +978,11 @@ DEBUG
 			}
 			tick = env.GetClock();
 		}
+		// abort after fixed time
+		// if (env.GetClock() == 119)
+		// {
+		//		throw std::runtime_error(showTestCase() + eventlog + "Why does this not work?!);
+		// }
 	}
 
 	void ElevatorLogic::HandleInteract(Environment &env, const Event &e)
@@ -1033,7 +1076,6 @@ DEBUG
 		ostringstream oss;
 		for (auto const &intf : allInterfaces)
 		{
-			// interfaces only have one target each
 			oss << "Interface { " <<
 			// ID
 			intf->GetId() << " " <<
@@ -1057,7 +1099,6 @@ DEBUG
 		{
 			Entity *snd = static_cast<Entity*>(e.GetSender());
 			Entity *ref = static_cast<Entity*>(e.GetEventHandler());
-			// interfaces only have one target each
 			oss << "Event { " <<
 			// Event type
 			e.GetEvent() << " " <<

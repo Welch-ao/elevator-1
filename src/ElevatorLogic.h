@@ -151,6 +151,8 @@ private:
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
 	std::map<Elevator*,int> loads_;
+	// elevator with upcoming door event IDs
+	std::map<Elevator*,int> doorEvents_;
 	std::set<Elevator*> moving_;
 	std::set<Elevator*> movingUp_;
 	std::set<Elevator*> movingDown_;

@@ -2,8 +2,8 @@ Floor { 10 11 0 4 1 40 }
 Floor { 11 0 10 4 1 40 }
 Interface { 40 1 20 }
 Elevator { 20 1 10 11 2 30 31 }
-Event { Elevator::Malfunction 5 20 20 }
-Event { Elevator::Fixed 8 20 20 }
+Event { Elevator::Malfunction 3 20 20 }
+Event { Elevator::Fixed 10 20 20 }
 Interface { 30 1 10 }
 Interface { 31 1 11 }
 Person { 50 11 10 10 5 0 }
