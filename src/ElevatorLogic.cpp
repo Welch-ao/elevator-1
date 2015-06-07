@@ -386,9 +386,9 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	if (ele->GetPosition() <= 0.49 || ele->GetPosition() >= 0.51)
-	    throw std::runtime_error("An elevator opened its doors when it was not at the center of a floor");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator opened its doors when it was not at the center of a floor");
 	if (moving_.count(ele))
-	    throw std::runtime_error("An elevator opened its doors while it was moving");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator opened its doors while it was moving");
 
 	open_.insert(ele);
 
@@ -416,7 +416,7 @@ void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 
 	// original test suite
     if (beeping_.count(ele))
-        throw std::runtime_error("An elevator closed the doors while it was beeping");
+        throw std::runtime_error(showTestCase() + eventlog + "An elevator closed the doors while it was beeping");
 
 	elevators_[ele].doorState = Closing;
 	elevators_[ele].isBusy = true;
@@ -475,12 +475,12 @@ void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
 
 	// original test suite
 	if (!open_.count(ele))
-	    throw std::runtime_error("An elevator started beeping while its doors were closed");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started beeping while its doors were closed");
 	auto iter = loads_.find(ele);
 	if (iter == loads_.end())
-	    throw std::runtime_error("An elevator started beeping although it was not overloaded");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started beeping although it was not overloaded");
 	if (iter->second <= ele->GetMaxLoad())
-	    throw std::runtime_error("An elevator started beeping although it was not overloaded");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started beeping although it was not overloaded");
 	beeping_.insert(ele);
 }
 
