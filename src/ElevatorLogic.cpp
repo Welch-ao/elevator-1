@@ -565,15 +565,15 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	}
 
 	// if all persons have reached their destination, leak the test case and exit successfully
-	for (auto i : allPersons)
-	{
-		if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
-		{
-			return;
-		}
-	}
-	cerr << showTestCase() << eventlog << "All Persons reached their final floor" << endl;
-	exit(0);
+	// for (auto i : allPersons)
+	// {
+	// 	if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
+	// 	{
+	// 		return;
+	// 	}
+	// }
+	// cerr << showTestCase() << eventlog << "All Persons reached their final floor" << endl;
+	// exit(0);
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -963,10 +963,11 @@ DEBUG
 			}
 			tick = env.GetClock();
 		}
-		if (env.GetClock() == 119)
-		{
-	        throw std::runtime_error(showTestCase() + eventlog + "I need to know!!!");
-		}
+		// abort after fixed time
+		// if (env.GetClock() == 119)
+		// {
+		//		throw std::runtime_error(showTestCase() + eventlog + "Why does this not work?!);
+		// }
 	}
 
 	void ElevatorLogic::HandleInteract(Environment &env, const Event &e)
