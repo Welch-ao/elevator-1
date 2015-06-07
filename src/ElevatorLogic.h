@@ -132,7 +132,7 @@ private:
 	// returns nulltpr if none found
 	Elevator* pickElevator(Environment &env, const Event &e);
 	// add a floor and a person which wants to go there to an elevators queue
-	void addToQueue(Elevator*, Floor*);
+	void addToQueue(Environment&, Elevator*, Floor*);
 	// get free space of given elevator
 	int getCapacity(Elevator* const);
 	// check if elevator is on the way to given floor
