@@ -568,17 +568,6 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	{
 		closeDoor(env,ele);
 	}
-
-	// if all persons have reached their destination, leak the test case and exit successfully
-	// for (auto i : allPersons)
-	// {
-	// 	if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
-	// 	{
-	// 		return;
-	// 	}
-	// }
-	// cout << showTestCase() << eventlog << "All Persons reached their final floor" << endl;
-	// exit(0);
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -991,11 +980,25 @@ DEBUG
 			}
 			tick = env.GetClock();
 		}
+		// check if all tracked persons reached their target
+		// if (!allPersons.empty())
+		// {
+		// 	for (auto i : allPersons)
+		// 	{
+		// 		DEBUG_V(i.first->GetId());
+		// 		DEBUG_V((i.first->GetCurrentFloor() == i.first->GetFinalFloor()));
+		// 		if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
+		// 		{
+		// 			return;
+		// 		}
+		// 	}
+		// 	exit(0);
+		// }
 		// abort after fixed time
-		if (env.GetClock() == 118)
-		{
-				throw std::runtime_error(showTestCase() + eventlog + "You must be kidding me");
-		}
+		// if (env.GetClock() == 118)
+		// {
+		// 		throw std::runtime_error(showTestCase() + eventlog + "You must be kidding me");
+		// }
 	}
 
 	void ElevatorLogic::HandleInteract(Environment &env, const Event &e)
