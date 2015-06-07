@@ -20,6 +20,7 @@ test:
 	# recompile everything and test all known passed tests
 	# write event logs and, if needed, error logs
 	make clean && make all
+	rm ../log/*
 	find ../passed -type f | while read line; do \
 		tmp=`mktemp`; \
 	    ../bin/cat "$$line" > ../log/$$(basename "$$line").log 2> $$tmp; \
