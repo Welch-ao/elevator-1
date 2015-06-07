@@ -564,6 +564,16 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 		closeDoor(env,ele,1);
 	}
 
+	// if all persons have reached their destination, leak the test case and exit successfully
+	for (auto i : allPersons)
+	{
+		if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
+		{
+			return;
+		}
+	}
+	cerr << showTestCase() << eventlog << "All Persons reached their final floor" << endl;
+	exit(0);
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -953,6 +963,10 @@ DEBUG
 			}
 			tick = env.GetClock();
 		}
+		if (env.GetClock() == 119)
+		{
+	        throw std::runtime_error(showTestCase() + eventlog + "I need to know!!!");
+		}
 	}
 
 	void ElevatorLogic::HandleInteract(Environment &env, const Event &e)
@@ -1046,7 +1060,6 @@ DEBUG
 		ostringstream oss;
 		for (auto const &intf : allInterfaces)
 		{
-			// interfaces only have one target each
 			oss << "Interface { " <<
 			// ID
 			intf->GetId() << " " <<
@@ -1070,7 +1083,6 @@ DEBUG
 		{
 			Entity *snd = static_cast<Entity*>(e.GetSender());
 			Entity *ref = static_cast<Entity*>(e.GetEventHandler());
-			// interfaces only have one target each
 			oss << "Event { " <<
 			// Event type
 			e.GetEvent() << " " <<
