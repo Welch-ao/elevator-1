@@ -49,62 +49,111 @@ void ElevatorLogic::Initialize(Environment &env)
 
 int ElevatorLogic::getQueueLength(Elevator *ele, Floor* f)
 {
-	// // on empty queue
-	// if (elevators_[ele].queue.empty())
-	// {
-	// 	// get direct travel time to target
-	// 	return getTravelTime(ele,ele->GetCurrentFloor(),f,true);
-	// }
+	// on empty queue
+	if (elevators_[ele].queueUp.empty() && elevators_[ele].queueDown.empty())
+	{
+		// get direct travel time to target
+		return getTravelTime(ele,ele->GetCurrentFloor(),f,true);
+	}
 
-	// // if next move is the right direction
-	// if (ele->GetCurrentFloor()->IsAbove(elevators_[ele].queue.begin()) && ele->GetCurrentFloor()->IsAbove(f))
-	// {
-	// 	int result = 0;
-	// 	auto i = elevators_[ele].queue.begin();
-	// 	// compare with first element of queue
-	// 	if
-	// 	(
-	// 		(getTravelTime(ele,ele->GetCurrentFloor(),*i) < getTravelTime(ele,ele->GetCurrentFloor(),f)) ||
-	// 		(ele->GetCurrentFloor()->IsBelow(elevators_[ele].queue.begin()) && ele->GetCurrentFloor()->IsBelow(f))
-	// 	)
-	// 	{
-	// 		result += getTravelTime(ele,ele->GetCurrentFloor(),*i);
-	// 		++i;
-	// 	}
-	// 	else
-	// 	{
-	// 		result += getTravelTime(ele,ele->GetCurrentFloor(),f);
-	// 		return result;
-	// 	}
-
-	// 	// compare with second to second-to-last elements
-	// 	while (i != elevators_[ele].queue.end())
-	// 	{
-	// 		auto j = i;
-	// 		++j;
-	// 		if (j != elevators_[ele].queue.end())
-	// 		{
-	// 			if (getTravelTime(ele,*i,*j) < getTravelTime(ele,*i,f))
-	// 			{
-	// 				result += getTravelTime(ele,*i,*j);
-	// 			}
-	// 			else
-	// 			{
-	// 				result += getTravelTime(ele,*i,f);
-	// 				return result;
-	// 			}
-	// 		}
-	// 		else
-	// 		{
-	// 			break;
-	// 		}
-	// 	}
-
-	// 	// last element has nothing to compare with, just add target at the end
-	// 	result += getTravelTime(ele,*i,f);
-	// 	return result;
-	// }
-	return 0;
+	int result = 0;
+	// straightforward path
+	if (movingUp_.count(ele) && onTheWay(ele,f))
+	{
+		Floor *prev = ele->GetCurrentFloor();
+		Floor *cur = ele->GetCurrentFloor();
+		while (cur != f)
+		{
+			if (elevators_[ele].queueUp.count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + 6;
+				prev = cur;
+			}
+			cur = cur->GetAbove();
+		}
+		result += getTravelTime(ele,prev,f);
+	}
+	else if (movingDown_.count(ele) && ele->GetCurrentFloor()->IsBelow(f))
+	{
+		Floor *prev = ele->GetCurrentFloor();
+		Floor *cur = ele->GetCurrentFloor();
+		while (cur != f)
+		{
+			if (elevators_[ele].queueDown.count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + 6;
+				prev = cur;
+			}
+			cur = cur->GetBelow();
+		}
+		result += getTravelTime(ele,prev,f);
+	}
+	// more complex path
+	else if (movingUp_.count(ele) && !onTheWay(ele,f))
+	{
+		Floor *prev = ele->GetCurrentFloor();
+		Floor *cur = ele->GetCurrentFloor();
+		// get all the way to the top
+		while (cur != nullptr)
+		{
+			if (elevators_[ele].queueUp.count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + 6;
+				prev = cur;
+			}
+			cur = cur->GetAbove();
+		}
+		// go down the whole down queue until target
+		cur = prev;
+		while (cur != f)
+		{
+			if (elevators_[ele].queueDown.count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + 6;
+				prev = cur;
+			}
+			cur = cur->GetBelow();
+		}
+		result += getTravelTime(ele,prev,f);
+	}
+	else if (movingDown_.count(ele) && !onTheWay(ele,f))
+	{
+		Floor *prev = ele->GetCurrentFloor();
+		Floor *cur = ele->GetCurrentFloor();
+		// get all the way down
+		while (cur != nullptr)
+		{
+			if (elevators_[ele].queueDown.count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + 6;
+				prev = cur;
+			}
+			cur = cur->GetBelow();
+		}
+		// go back up the up queue
+		cur = prev;
+		while (cur != f)
+		{
+			if (elevators_[ele].queueUp.count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + 6;
+				prev = cur;
+			}
+			cur = cur->GetAbove();
+		}
+		result += getTravelTime(ele,prev,f);
+	}
+	else
+	{
+		DEBUG_S("Case not considered");
+	}
+	return result;
 }
 
 Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
@@ -172,7 +221,7 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 				lowest = ele;
 			}
 		}
-		DEBUG_S("Using elevator " << lowest->GetId() << " (smallest load of " << getCapacity(lowest) << " at floor " << lowest->GetCurrentFloor()->GetId());
+		DEBUG_S("Using elevator " << lowest->GetId() << " (smallest load of " << getCapacity(lowest) << ") at floor " << lowest->GetCurrentFloor()->GetId());
 		return lowest;
 	}
 	else
@@ -287,7 +336,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				(
 					"Using elevator " << ele->GetId() << " at floor " << ele->GetCurrentFloor()->GetId() <<
 					". Distance: " << getDistance(ele->GetCurrentFloor(),personsFloor,ele->GetPosition()) <<
-					" ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),personsFloor)
+					" ETA: " << getQueueLength(ele,personsFloor)
 				);
 				sendToFloor(env,personsFloor,ele);
 			}
@@ -359,6 +408,7 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 	elevators_[ele].queueUp.erase(ele->GetCurrentFloor());
 	elevators_[ele].queueDown.erase(ele->GetCurrentFloor());
 
+	env.SendEvent("Elevator::Close",1,this,ele);
 	DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << ele->GetCurrentFloor()->GetId() << " from queue");
 }
 
@@ -481,8 +531,6 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 
 	elevators_[ele].passengers.erase(person);
 	elevators_[ele].isBusy = false;
-
-	continueOperation(env,ele);
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -762,7 +810,7 @@ int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b, bool direct)
 void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* target)
 {
 	DEBUG_S("Considering elevator " << ele->GetId() <<
-	". Distance: " << getDistance(ele->GetCurrentFloor(),target,ele->GetPosition()) << " ETA: " << getTravelTime(ele,ele->GetCurrentFloor(),target));
+	". Distance: " << getDistance(ele->GetCurrentFloor(),target,ele->GetPosition()) << " ETA: " << getQueueLength(ele,target));
 
 	// if list empty, just add
 	if (elevs.empty())
@@ -778,7 +826,7 @@ void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* targ
 	for(; i != elevs.end(); ++i)
 	{
 		// insert before
-		if (getTravelTime((*i),(*i)->GetCurrentFloor(),target) > getTravelTime(ele,ele->GetCurrentFloor(),target))
+		if (getQueueLength((*i),target) > getQueueLength(ele,target))
 		{
 			// the insert happens after the loop anyway
 			break;
