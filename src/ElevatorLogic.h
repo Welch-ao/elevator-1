@@ -164,10 +164,13 @@ private:
 	set<Floor*> allFloors;
 	string eventlog;
 	set<Interface*> allInterfaces;
+	// all malfunction and fixed events
+	list<Event> allEvents;
 	string showFloors();
 	string showPersons();
 	string showElevators();
 	string showInterfaces();
+	string showEvents();
 	// last time we checked
 	int tick;
 	);
@@ -178,7 +181,8 @@ private:
 	// elevator with starting floor
 	map<Elevator*,int> allElevators;
 	// persons with their deadlines
-	std::map<Person*,int> deadlines_;
+	map<Person*,int> deadlines_;
+
 
 
 	DEBUG

@@ -453,11 +453,11 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 	auto iter = loads_.find(ele);
 	if (iter != loads_.end())
 	    if (iter->second > ele->GetMaxLoad())
-	        throw std::runtime_error("An elevator started moving while exceeding its maximum load");
+	        throw std::runtime_error(showTestCase() + eventlog + "An elevator started moving while exceeding its maximum load");
 	if (malfunctions_.count(ele))
-	    throw std::runtime_error("An elevator started moving while it was malfunctioning");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started moving while it was malfunctioning");
 	if (open_.count(ele))
-	    throw std::runtime_error("An elevator started moving while its doors were open");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started moving while its doors were open");
 	moving_.insert(ele);
 
 	env.SendEvent("Interface::Notify",0,ele,ele);
@@ -492,6 +492,8 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+	allEvents.push_back(e);
+	DEBUG_S("[NSA]: Tracking malfunction");
 
 	malfunctions_.insert(ele);
 	// stop immediately
@@ -501,6 +503,10 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+
+	allEvents.push_back(e);
+	DEBUG_S("[NSA]: Tracking fixed");
+
 	malfunctions_.erase(ele);
 	// continue normal operation
 	continueOperation(env,ele);
@@ -986,6 +992,28 @@ DEBUG
 		return oss.str();
 	}
 
+
+	string ElevatorLogic::showEvents()
+	{
+		ostringstream oss;
+		for (auto const &e : allEvents)
+		{
+			Entity *snd = static_cast<Entity*>(e.GetSender());
+			Entity *ref = static_cast<Entity*>(e.GetEventHandler());
+			// interfaces only have one target each
+			oss << "Event { " <<
+			// Event type
+			e.GetEvent() << " " <<
+			// time
+			e.GetTime() << " " <<
+			// sender
+			snd->GetId() << " " <<
+			// reference
+			ref->GetId() << " " <<
+			oss << " }<br>" << endl;
+		}
+		return oss.str();
+	}
 	void ElevatorLogic::collectInfo(Environment &env, Person *person)
 	{
 		// track person with start floor and time
@@ -1053,6 +1081,6 @@ DEBUG
 
 	string ElevatorLogic::showTestCase()
 	{
-		return (showFloors() + showElevators() + showPersons() + showInterfaces());
+		return (showFloors() + showElevators() + showPersons() + showInterfaces() + showEvents());
 	}
 );
