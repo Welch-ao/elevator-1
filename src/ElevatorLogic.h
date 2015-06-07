@@ -125,9 +125,9 @@ private:
 	// send elevator to given floor
 	void sendToFloor(Environment &env, Floor*, Elevator*);
 	// open a given elevators door
-	void openDoor(Environment &env, Elevator*);
+	void openDoor(Environment &env, Elevator*, int delay = 0);
 	// close a given elevators door
-	void closeDoor(Environment &env, Elevator*);
+	void closeDoor(Environment &env, Elevator*, int delay = 0);
 	// pick an elevator for a caller
 	// returns nulltpr if none found
 	Elevator* pickElevator(Environment &env, const Event &e);
@@ -151,6 +151,8 @@ private:
 	// states of all elevators we already handled
 	map<Elevator*,ElevatorState> elevators_;
 	std::map<Elevator*,int> loads_;
+	// elevator with upcoming door event IDs
+	std::map<Elevator*,int> doorEvents_;
 	std::set<Elevator*> moving_;
 	std::set<Elevator*> movingUp_;
 	std::set<Elevator*> movingDown_;

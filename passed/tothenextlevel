@@ -13,4 +13,4 @@ Interface { 31 1 10 }
 Interface { 32 1 11 }
 
 Person { 50 11 10 11 5 0 }
-Person { 51 9 11 10 5 0 }
+Person { 51 9 11 3 5 0 }
