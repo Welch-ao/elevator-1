@@ -522,8 +522,18 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	if (!iter.second)
 	    iter.first->second += person->GetWeight();
 
+
 	elevators_[ele].passengers.insert(person);
 	elevators_[ele].isBusy = false;
+	if (loads_[ele]  > ele->GetMaxLoad())
+	{
+		openDoor(env,ele);
+		env.SendEvent("Elevator::Beep",0,this,ele);
+	}
+	else
+	{
+		closeDoor(env,ele);
+	}
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
@@ -549,16 +559,15 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 	elevators_[ele].isBusy = true;
 
 	// do not track deadlines anymore
-	DEBUG_S("[Person " << person->GetId() << "] Had " << (deadlines_[person] - e.GetTime()) << " ticks left");
-	if (getCapacity(ele) - person->GetWeight() < 0)
-	{
-		DEBUG_S("[Elevator " << ele->GetId() << "] Will be overloaded if person enters!");
-		env.SendEvent("Elevator::Beep",0,this,ele);
-	}
-	else
-	{
-		closeDoor(env,ele);
-	}
+	// if (loads_[ele] + person->GetWeight() > ele->GetMaxLoad())
+	// {
+	// 	openDoor(env,ele);
+	// 	env.SendEvent("Elevator::Beep",0,this,ele);
+	// }
+	// else
+	// {
+	// 	closeDoor(env,ele);
+	// }
 	// original test suite
 	deadlines_.erase(deadlines_.find(person));
 }

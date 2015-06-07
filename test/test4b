@@ -1,0 +1,9 @@
+Floor { 10 11 0 4 1 40 }
+Floor { 11 0 10 4 1 40 }
+Elevator { 20 1 10 11 2 30 31 }
+Person { 50 11 10 30 5 0 }
+Person { 51 11 10 30 6 0 }
+Person { 52 11 10 30 7 0 }
+Interface { 40 1 20 }
+Interface { 31 1 11 }
+Interface { 30 1 10 }
