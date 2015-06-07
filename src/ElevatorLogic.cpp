@@ -293,7 +293,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 		// otherwise continue movement and report back later
 		else
 		{
-			env.SendEvent("Interface::Notify",1,ele,ele);
+			if (!malfunctions_.count(ele))
+			{
+				env.SendEvent("Interface::Notify",1,ele,ele);
+			}
 		}
 
 	}
@@ -330,7 +333,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			// try to find the best fitting elevator
 			Elevator *ele = pickElevator(env,e);
 			// if it exists
-			if (ele)
+			if (ele && !malfunctions_.count(ele))
 			{
 				DEBUG_S
 				(
@@ -364,11 +367,7 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	// original test suite
 	moving_.erase(ele);
-
-	// set this elevator to moving state
-	elevators_[ele].isBusy = true;
 
 	// only open doors if we're at the middle of a floor
 	if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
@@ -500,7 +499,10 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 
 	malfunctions_.insert(ele);
 	// stop immediately
-	env.SendEvent("Elevator::Stop",0,this,ele);
+	if (moving_.count(ele))
+	{
+		env.SendEvent("Elevator::Stop",0,this,ele);
+	}
 }
 
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
@@ -630,6 +632,10 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 	if (moving_.count(ele))
 	{
 		DEBUG_S("Already moving, do nothing");
+	}
+	else if (malfunctions_.count(ele))
+	{
+		DEBUG_S("Malfunctioning, do nothing");
 	}
 	// if idling somewhere else, send into right direction
 	else if (!elevators_[ele].isBusy)
