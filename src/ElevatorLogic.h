@@ -125,9 +125,9 @@ private:
 	// send elevator to given floor
 	void sendToFloor(Environment &env, Floor*, Elevator*);
 	// open a given elevators door
-	void openDoor(Environment &env, Elevator*);
+	void openDoor(Environment &env, Elevator*, int delay = 0);
 	// close a given elevators door
-	void closeDoor(Environment &env, Elevator*);
+	void closeDoor(Environment &env, Elevator*, int delay = 0);
 	// pick an elevator for a caller
 	// returns nulltpr if none found
 	Elevator* pickElevator(Environment &env, const Event &e);

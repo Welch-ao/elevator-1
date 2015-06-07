@@ -40,6 +40,7 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Elevator::Malfunction",	this, &ElevatorLogic::HandleMalfunction);
 	env.RegisterEventHandler("Elevator::Fixed",			this, &ElevatorLogic::HandleFixed);
 	env.RegisterEventHandler("Person::Entered",			this, &ElevatorLogic::HandleEntered);
+	env.RegisterEventHandler("Person::Canceled",			this, &ElevatorLogic::HandleEntered);
 	env.RegisterEventHandler("Person::Exited",			this, &ElevatorLogic::HandleExited);
 	env.RegisterEventHandler("Person::Entering",		this, &ElevatorLogic::HandleEntering);
 	env.RegisterEventHandler("Person::Exiting",			this, &ElevatorLogic::HandleExiting);
@@ -364,16 +365,13 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	// original test suite
-	moving_.erase(ele);
-
 	// set this elevator to moving state
-	elevators_[ele].isBusy = true;
+	moving_.erase(ele);
 
 	// only open doors if we're at the middle of a floor
 	if (ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
 	{
-		env.SendEvent("Elevator::Open", 0, this, ele);
+		openDoor(env,ele);
 	}
 	DEBUG
 	(
@@ -392,23 +390,24 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 	    throw std::runtime_error("An elevator opened its doors when it was not at the center of a floor");
 	if (moving_.count(ele))
 	    throw std::runtime_error("An elevator opened its doors while it was moving");
+
 	open_.insert(ele);
 
 	elevators_[ele].doorState = Opening;
-	elevators_[ele].isBusy = true;
 }
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	elevators_[ele].doorState = Opened;
+	DEBUG_S("Setting idle");
 	elevators_[ele].isBusy = false;
 	// remove floor from queue where we just opened the door
 	elevators_[ele].queue.erase(ele->GetCurrentFloor());
 	elevators_[ele].queueUp.erase(ele->GetCurrentFloor());
 	elevators_[ele].queueDown.erase(ele->GetCurrentFloor());
 
-	env.SendEvent("Elevator::Close",1,this,ele);
+	closeDoor(env,ele,1);
 	DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << ele->GetCurrentFloor()->GetId() << " from queue");
 }
 
@@ -419,10 +418,6 @@ void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 	// original test suite
     if (beeping_.count(ele))
         throw std::runtime_error("An elevator closed the doors while it was beeping");
-
-	// elevators_[ele].doorState = Closing;
-	elevators_[ele].isBusy = true;
-
 }
 
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
@@ -430,8 +425,8 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 	Elevator* ele = static_cast<Elevator*>(e.GetSender());
 	// original test suite
 	open_.erase(ele);
-
 	elevators_[ele].doorState = Closed;
+	DEBUG_S("Setting idle");
 	elevators_[ele].isBusy = false;
 
 	// continue operation if possible
@@ -466,25 +461,29 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 
 void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
 {
-	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
-	// original test suite
 	if (!open_.count(ele))
-	    throw std::runtime_error("An elevator started beeping while its doors were closed");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started beeping while its doors were closed");
 	auto iter = loads_.find(ele);
 	if (iter == loads_.end())
-	    throw std::runtime_error("An elevator started beeping although it was not overloaded");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started beeping although it was not overloaded");
 	if (iter->second <= ele->GetMaxLoad())
-	    throw std::runtime_error("An elevator started beeping although it was not overloaded");
+	    throw std::runtime_error(showTestCase() + eventlog + "An elevator started beeping although it was not overloaded");
 	beeping_.insert(ele);
 }
 
 void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 {
-	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 
 	// original test suite
 	beeping_.erase(ele);
+	DEBUG_S("Persons on board:");
+	for (auto const &p : elevators_[ele].passengers)
+	{
+		DEBUG_S(p->GetId());
+	}
 	// continue normal operation
 	continueOperation(env,ele);
 }
@@ -515,7 +514,15 @@ void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 {
 	Person *person = static_cast<Person*>(e.GetSender());
-	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+	Elevator *ele;
+	if (e.GetEvent() == "Person::Canceled")
+	{
+		ele = person->GetCurrentElevator();
+	}
+	else
+	{
+		ele = static_cast<Elevator*>(e.GetEventHandler());
+	}
 
 	// original test suite
 	auto iter = loads_.insert(std::make_pair(ele, person->GetWeight()));
@@ -524,16 +531,32 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 
 
 	elevators_[ele].passengers.insert(person);
+	DEBUG_S("Setting idle");
 	elevators_[ele].isBusy = false;
-	if (loads_[ele]  > ele->GetMaxLoad())
+	if (loads_[ele] > ele->GetMaxLoad())
 	{
-		openDoor(env,ele);
-		env.SendEvent("Elevator::Beep",0,this,ele);
+
+		// check if someone is entering or exiting
+		if (elevators_[ele].doorState == Opened)
+		{
+			DEBUG_S("[Elevator " << ele->GetId() << "] Overloaded!");
+			env.SendEvent("Elevator::Beep",0,ele,ele);
+		}
+		else if (elevators_[ele].doorState != Opened)
+		{
+			DEBUG_S("[Elevator " << ele->GetId() << "] Overloaded, opening door.");
+			openDoor(env,ele,1);
+			env.SendEvent("Elevator::Beep",3,ele,ele);
+		}
+		beeping_.insert(ele);
+
 	}
 	else
 	{
+		DEBUG_S("[Elevator " << ele->GetId() << "] Person entered, closing door");
 		closeDoor(env,ele);
 	}
+
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
@@ -546,7 +569,14 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	iter->second -= person->GetWeight();
 
 	elevators_[ele].passengers.erase(person);
+	DEBUG_S("Setting idle");
 	elevators_[ele].isBusy = false;
+	DEBUG_S("[Elevator " << ele->GetId() << "] Person exited, what to do?");
+	if (beeping_.count(ele) && loads_[ele] <= ele->GetMaxLoad())
+	{
+		beeping_.erase(ele);
+		env.SendEvent("Elevator::StopBeep",0,ele,ele);
+	}
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -554,27 +584,19 @@ void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	Person *person = static_cast<Person*>(e.GetSender());
 
-
+	DEBUG_S("Setting busy");
 
 	elevators_[ele].isBusy = true;
 
-	// do not track deadlines anymore
-	// if (loads_[ele] + person->GetWeight() > ele->GetMaxLoad())
-	// {
-	// 	openDoor(env,ele);
-	// 	env.SendEvent("Elevator::Beep",0,this,ele);
-	// }
-	// else
-	// {
-	// 	closeDoor(env,ele);
-	// }
-	// original test suite
+	//do not track deadlines anymore
 	deadlines_.erase(deadlines_.find(person));
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+	DEBUG_S("Setting busy");
+
 	elevators_[ele].isBusy = true;
 
 	closeDoor(env,ele);
@@ -601,13 +623,20 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 	// add target floor to queue in any case
 	addToQueue(ele,target);
 	// if moving already, just add to queue (see below)
+
 	if (moving_.count(ele))
 	{
 		DEBUG_S("Already moving, do nothing");
 	}
+	else if (loads_[ele] > ele->GetMaxLoad())
+	{
+		DEBUG_S("Overloaded! Do not move.");
+
+	}
 	// if idling somewhere else, send into right direction
 	else if (!elevators_[ele].isBusy)
 	{
+
 		// TODO: check again after 3 ticks if starting movement is already appropriate
 
 		// adjust delay depending on door state
@@ -652,9 +681,16 @@ void ElevatorLogic::sendToFloor(Environment &env, Floor *target, Elevator *ele)
 			movingDown_.insert(ele);
 		}
 	}
+	else
+	{
+		DEBUG_S("What happened?");
+		DEBUG_V(elevators_[ele].isBusy);
+		DEBUG_V((loads_[ele] > ele->GetMaxLoad()));
+		DEBUG_V(elevators_[ele].doorState);
+	}
 }
 
-void ElevatorLogic::openDoor(Environment &env, Elevator* ele)
+void ElevatorLogic::openDoor(Environment &env, Elevator* ele, int delay)
 {
 	// only open door if stopped in the middle of a floor
 	bool stoppedProperly = !moving_.count(ele) && ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51;
@@ -663,23 +699,35 @@ void ElevatorLogic::openDoor(Environment &env, Elevator* ele)
 
 	if (stoppedProperly && doorClosed)
 	{
-		env.SendEvent("Elevator::Open", 0, this, ele);
+		env.SendEvent("Elevator::Open", delay, this, ele);
+		elevators_[ele].doorState = Opening;
+		DEBUG_S("Setting busy");
+		elevators_[ele].isBusy = true;
 	}
 	// TODO: If door is closing, delay everything somehow until the door is open.
 }
 
-void ElevatorLogic::closeDoor(Environment &env, Elevator* ele)
+void ElevatorLogic::closeDoor(Environment &env, Elevator* ele, int delay)
 {
 	// only if not beeping
 	// only open door if stopped in the middle of a floor
 	// only open door if it is already closed or currently closing
 	bool doorOpen = elevators_[ele].doorState == Opened || elevators_[ele].doorState == Opening;
 	// check if someone is entering or exiting
-	if (!beeping_.count(ele) && doorOpen)
+	if (!(loads_[ele] > ele->GetMaxLoad()) && doorOpen)
 	{
-		//DEBUG_S("[Elevator " << ele->GetId() << "] Closing door");
-		env.SendEvent("Elevator::Close", 0, this, ele);
+		env.SendEvent("Elevator::Close", delay, this, ele);
 		elevators_[ele].doorState = Closing;
+		DEBUG_S("Setting busy");
+		elevators_[ele].isBusy = true;
+	}
+	else
+	{
+		DEBUG_S("WHAT NOW");
+		DEBUG_V((loads_[ele] > ele->GetMaxLoad()));
+		DEBUG_V((elevators_[ele].doorState == Closing));
+		DEBUG_V((elevators_[ele].doorState == Opened));
+
 	}
 }
 
