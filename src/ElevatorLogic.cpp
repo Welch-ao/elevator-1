@@ -504,6 +504,64 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 	{
 		env.SendEvent("Elevator::Stop",0,this,ele);
 	}
+
+	// reassign the queue to other elevators if possible
+	for (auto const &f : elevators_[ele].queueUp)
+	{
+		// possible means that the request came from outside
+		// since we don't have any other information, we have to check with
+		// passengers' target floors
+		for (auto const &p : elevators_[ele].passengers)
+		{
+			if (ele->HasFloor(p->GetFinalFloor()) && f == p->GetFinalFloor())
+			goto bums;
+		}
+
+		// reassign to the first elevator that could do
+		// WARNING: could go terribly wrong
+		for (auto const &el : elevators_)
+		{
+			if (el.first->HasFloor(f))
+			{
+				sendToFloor(env,f,el.first);
+				break;
+			}
+		}
+		// remove from queue
+		elevators_[ele].queueUp.erase(f);
+		continue;
+
+		bums:
+		break;
+	}
+	for (auto const &f : elevators_[ele].queueDown)
+	{
+		// possible means that the request came from outside
+		// since we don't have any other information, we have to check with
+		// passengers' target floors
+		for (auto const &p : elevators_[ele].passengers)
+		{
+			if (ele->HasFloor(p->GetFinalFloor()) && f == p->GetFinalFloor())
+			goto bums2;
+		}
+
+		// reassign to the first elevator that could do
+		// WARNING: could go terribly wrong
+		for (auto const &el : elevators_)
+		{
+			if (el.first->HasFloor(f))
+			{
+				sendToFloor(env,f,el.first);
+				break;
+			}
+		}
+		// remove from queue
+		elevators_[ele].queueUp.erase(f);
+		continue;
+
+		bums2:
+		break;
+	}
 }
 
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
