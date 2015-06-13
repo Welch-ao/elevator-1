@@ -505,44 +505,59 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 		env.SendEvent("Elevator::Stop",0,this,ele);
 	}
 
+	DEBUG_S("[Elevator " << ele->GetId() << "] Reassigning up queue...");
 	// reassign the queue to other elevators if possible
 	for (auto const &f : elevators_[ele].queueUp)
 	{
+		DEBUG_S("Checking Floor " << f->GetId());
 		// possible means that the request came from outside
 		// since we don't have any other information, we have to check with
 		// passengers' target floors
 		for (auto const &p : elevators_[ele].passengers)
 		{
 			if (ele->HasFloor(p->GetFinalFloor()) && f == p->GetFinalFloor())
-			goto bums;
+			{
+				DEBUG_S("Passenger" << p->GetId() << " is on the way! No reassignment.");
+				goto bums;
+			}
 		}
+
+		DEBUG_S("Checking alternatives...");
 
 		// reassign to the first elevator that could do
 		// WARNING: could go terribly wrong
 		for (auto const &el : elevators_)
 		{
-			if (el.first->HasFloor(f))
+			if (el.first->HasFloor(f) && !malfunctions_.count(el.first))
 			{
+				DEBUG_S("Elevator " << el.first->GetId() << " is good, reassigning.");
 				sendToFloor(env,f,el.first);
+				// remove from queue
+				elevators_[ele].queueUp.erase(f);
 				break;
 			}
 		}
-		// remove from queue
-		elevators_[ele].queueUp.erase(f);
 		continue;
 
 		bums:
 		break;
 	}
+	DEBUG_S("[Elevator " << ele->GetId() << "] Reassigning down queue...");
+
 	for (auto const &f : elevators_[ele].queueDown)
 	{
+		DEBUG_S("Checking Floor " << f->GetId());
+
 		// possible means that the request came from outside
 		// since we don't have any other information, we have to check with
 		// passengers' target floors
 		for (auto const &p : elevators_[ele].passengers)
 		{
 			if (ele->HasFloor(p->GetFinalFloor()) && f == p->GetFinalFloor())
-			goto bums2;
+			{
+				DEBUG_S("Passenger" << p->GetId() << " is on the way! No reassignment.");
+				goto bums2;
+			}
 		}
 
 		// reassign to the first elevator that could do
@@ -551,16 +566,22 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 		{
 			if (el.first->HasFloor(f))
 			{
+				DEBUG_S("Elevator " << el.first->GetId() << " is good, reassigning.");
 				sendToFloor(env,f,el.first);
+				elevators_[ele].queueDown.erase(f);
 				break;
 			}
 		}
 		// remove from queue
-		elevators_[ele].queueUp.erase(f);
 		continue;
 
 		bums2:
 		break;
+	}
+
+	if (!elevators_[ele].queueDown.empty() || !elevators_[ele].queueUp.empty())
+	{
+		DEBUG_S("WARNING: Not all queues emptied after malfunction!!!");
 	}
 }
 
@@ -1019,24 +1040,35 @@ DEBUG
 			}
 			tick = env.GetClock();
 		}
+		// abort if somebody is stuck in elevator
+		if (!malfunctions_.empty())
+		{
+			for (auto m : malfunctions_)
+			{
+				if (!elevators_[m].passengers.empty())
+				{
+					throw std::runtime_error(showTestCase() + eventlog + "Person stuck in elevator!!!");
+				}
+			}
+		}
 		// check if all tracked persons reached their target
 		// if (!allPersons.empty())
 		// {
-		// 	for (auto i : allPersons)
-		// 	{
-		// 		DEBUG_V(i.first->GetId());
-		// 		DEBUG_V((i.first->GetCurrentFloor() == i.first->GetFinalFloor()));
-		// 		if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
-		// 		{
-		// 			return;
-		// 		}
-		// 	}
-		// 	exit(0);
+		//	for (auto i : allPersons)
+		//	{
+		//		DEBUG_V(i.first->GetId());
+		//		DEBUG_V((i.first->GetCurrentFloor() == i.first->GetFinalFloor()));
+		//		if (i.first->GetCurrentFloor() != i.first->GetFinalFloor())
+		//		{
+		//			return;
+		//		}
+		//	}
+		//	exit(0);
 		// }
 		// abort after fixed time
 		// if (env.GetClock() == 118)
 		// {
-		// 		throw std::runtime_error(showTestCase() + eventlog + "You must be kidding me");
+		//		throw std::runtime_error(showTestCase() + eventlog + "You must be kidding me");
 		// }
 	}
 
