@@ -623,10 +623,11 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	{
 		closeDoor(env,ele);
 	}
-	if (ele->HasFloor(person->GetFinalFloor()))
-	{
-		addToQueue(env,ele,person->GetFinalFloor());
-	}
+	// read passenger's mind
+	// if (ele->HasFloor(person->GetFinalFloor()))
+	// {
+	//	addToQueue(env,ele,person->GetFinalFloor());
+	// }
 }
 
 void ElevatorLogic::HandleExited(Environment &env, const Event &e)
@@ -1041,16 +1042,16 @@ DEBUG
 			tick = env.GetClock();
 		}
 		// abort if somebody is stuck in elevator
-		if (!malfunctions_.empty())
-		{
-			for (auto m : malfunctions_)
-			{
-				if (!elevators_[m].passengers.empty())
-				{
-					throw std::runtime_error(showTestCase() + eventlog + "Person stuck in elevator!!!");
-				}
-			}
-		}
+		// if (!malfunctions_.empty())
+		// {
+		//	for (auto m : malfunctions_)
+		//	{
+		//		if (!elevators_[m].passengers.empty())
+		//		{
+		//			throw std::runtime_error(showTestCase() + eventlog + "Person stuck in elevator!!!");
+		//		}
+		//	}
+		// }
 		// check if all tracked persons reached their target
 		// if (!allPersons.empty())
 		// {

@@ -5,11 +5,11 @@ Floor { 12 11 0 4 1 40 }
 Interface { 40 1 20 }
 UpDownButton { 41 1 20 }
 
-Elevator { 20 1 10 10 3 30 31 32 }
+Elevator { 20 1 10 12 3 30 31 32 }
 
 Interface { 30 1 10 }
 Interface { 31 1 11 }
 Interface { 32 1 12 }
 
-Person { 50 12 10 10 5 0 }
-Person { 51 11 10 10 5 0 }
+Person { 50 12 10 3 5 0 }
+Person { 51 11 10 13 5 0 }
