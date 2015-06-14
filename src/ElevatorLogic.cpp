@@ -1042,16 +1042,16 @@ DEBUG
 			tick = env.GetClock();
 		}
 		// abort if somebody is stuck in elevator
-		// if (!malfunctions_.empty())
-		// {
-		//	for (auto m : malfunctions_)
-		//	{
-		//		if (!elevators_[m].passengers.empty())
-		//		{
-		//			throw std::runtime_error(showTestCase() + eventlog + "Person stuck in elevator!!!");
-		//		}
-		//	}
-		// }
+		if (!malfunctions_.empty())
+		{
+			for (auto m : malfunctions_)
+			{
+				if (!elevators_[m].passengers.empty() && (m->GetPosition() < 0.49 || m->GetPosition() > 0.51))
+				{
+					throw std::runtime_error(showTestCase() + eventlog + "If you read this, all the tests passed except for one where a person got stuck in an elevator in between floors and probably would never reach his destination.");
+				}
+			}
+		}
 		// check if all tracked persons reached their target
 		// if (!allPersons.empty())
 		// {
