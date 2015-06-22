@@ -195,7 +195,7 @@ void Person::HandleOpened(Environment &env, const Event &e) {
 					Exit(env);
 
 	} else if (requested_->HasLoadable(ele) && ele->GetCurrentFloor() == current_ && ele->GetPosition() > 0.49
-			&& ele->GetPosition() < 0.51 && e.GetTime() > start_) {
+			&& ele->GetPosition() < 0.51 && e.GetTime() > start_ && ele->GetState() != Elevator::Malfunction) {
 
 		elevator_ = ele;
 		Enter(env);
@@ -222,16 +222,15 @@ void Person::HandleExited(Environment &env, const Event &e) {
 	Person *person = static_cast<Person*>(e.GetSender());
 
 	if (FromMe(e)) {
-
 		exiting_.clear();
-		current_ = elevator_->GetCurrentFloor();
-		elevator_ = nullptr;
-
+		if (elevator_) {
+			current_ = elevator_->GetCurrentFloor();
+			elevator_ = nullptr;
+		}
 		if (!beeping_) {
 			path_.pop_front();
 			RequestElevator(env, e.GetTime() + 3);
 		}
-
 	} else if (beeping_ && exiting_.count(person)) {
 		exiting_.erase(person);
 		Cancel(env);
