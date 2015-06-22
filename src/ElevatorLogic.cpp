@@ -60,7 +60,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			Floor *current = ele->GetCurrentFloor();
 
 			// catch possible null pointer
-			if (queue_.find(ele) != queue_.end())
+			if (queue_.find(ele) == queue_.end())
 				throw runtime_error(showTestCase() + "An elevator was moving without having a queue.");
 
 			// stop if we're at the middle of any floor in the queue or at the upper/lower limit
@@ -274,6 +274,241 @@ void ElevatorLogic::HandleAll(Environment &env, const Event &e)
 	}
 }
 
+
+/**
+ * helper functions
+ */
+
+// check if elevator is on the way to given floor
+bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
+{
+	return
+	(
+		(movingUp_.count(ele) && ele->GetCurrentFloor()->IsAbove(target)) ||
+		(movingDown_.count(ele) && ele->GetCurrentFloor()->IsBelow(target)) ||
+		(ele->GetCurrentFloor() == target &&
+			(
+			(ele->GetPosition() > 0.51 && movingDown_.count(ele)) ||
+			(ele->GetPosition() < 0.49 && movingUp_.count(ele)) ||
+			// this is important so that getQueueLengt() works as expected
+			(ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+			)
+		)
+	);
+}
+
+// get distance from one floor (including position) to another
+double ElevatorLogic::getDistance(Floor *a, Floor *b, double pos)
+{
+	// if relative to one floor, return distance from the middle
+	if (a == b)
+		return abs(a->GetHeight()/2 - a->GetHeight()*pos);
+	// walk through all floors until we reach destination
+	else if (a->IsBelow(b))
+	{
+		double distance = a->GetHeight()*pos;
+		while (a->GetBelow() != b)
+		{
+			a = a->GetBelow();
+			distance += a->GetHeight();
+		}
+		distance += b->GetHeight()/2;
+		return distance;
+	}
+	else
+	{
+		double distance = a->GetHeight() - a->GetHeight()*pos;
+		while (a->GetAbove() != b)
+		{
+			a = a->GetAbove();
+			distance += a->GetHeight();
+		}
+		distance += b->GetHeight()/2;
+		return distance;
+	}
+}
+
+// get travel time of an elevator from one floor to the other
+int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b, bool direct)
+{
+	if (direct)
+		return ceil(getDistance(a,b,ele->GetPosition())/ele->GetSpeed());
+	else
+		return ceil(getDistance(a,b)/ele->GetSpeed());
+}
+
+// get travel time to a floor considering an existing queue
+int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
+{
+	// catch possible null pointer
+	if (queue_.find(ele) == queue_.end())
+		throw runtime_error(showTestCase() + "An elevator trying to calculate travel time without having a queue.");
+
+	// on empty queue or unmoved elevator
+	if (queue_[ele].empty())
+		// get direct travel time to target
+		return getTravelTime(ele,ele->GetCurrentFloor(),target,true);
+
+	int result = 0;
+	Floor *prev = ele->GetCurrentFloor();
+	Floor *cur = ele->GetCurrentFloor();
+
+
+	// straightforward path
+	if (movingUp_.count(ele) && onTheWay(ele,target))
+	{
+		while (cur != target)
+		{
+			if (queue_[ele].count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				prev = cur;
+			}
+			cur = cur->GetAbove();
+		}
+	}
+	else if (movingDown_.count(ele) && onTheWay(ele,target))
+	{
+		while (cur != target)
+		{
+			if (queue_[ele].count(cur))
+			{
+				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				prev = cur;
+			}
+			cur = cur->GetBelow();
+		}
+	}
+	// more complex path
+	else if (movingUp_.count(ele) && !onTheWay(ele,target))
+	{
+		// get all the way to the top
+		while (cur != nullptr)
+		{
+			if (queue_[ele].count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				prev = cur;
+			}
+			cur = cur->GetAbove();
+		}
+		// go down the whole down queue until target
+		cur = ele->GetCurrentFloor();
+		while (cur != target)
+		{
+			if (queue_[ele].count(cur))
+			{
+				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				prev = cur;
+			}
+			cur = cur->GetBelow();
+		}
+	}
+	else if (movingDown_.count(ele) && !onTheWay(ele,target))
+	{
+		// get all the way to the top
+		while (cur != nullptr)
+		{
+			if (queue_[ele].count(cur))
+			{
+				// also consider time for opening/closing door
+				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				prev = cur;
+			}
+			cur = cur->GetBelow();
+		}
+		// go down the whole down queue until target
+		cur = ele->GetCurrentFloor();
+		while (cur != target)
+		{
+			if (queue_[ele].count(cur))
+			{
+				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				prev = cur;
+			}
+			cur = cur->GetAbove();
+		}
+	}
+	else
+	{
+		// this should absolutely not happen, but who knows
+		DEBUG_S("Case not considered");
+		DEBUG_V(ele->GetId());
+		DEBUG_V(onTheWay(ele,target));
+		DEBUG_V(queue_[ele].empty());
+		DEBUG_V(moving_.count(ele));
+		DEBUG_V(movingUp_.count(ele));
+		DEBUG_V(movingDown_.count(ele));
+		throw runtime_error(showTestCase() + "Could not find proper queue length for an elevator.");
+	}
+	return (result + getTravelTime(ele,prev,target));
+}
+
+// add elevator to a list sorted by time to travel to a target floor
+void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* target)
+{
+	DEBUG_S("Considering elevator " << ele->GetId() <<
+	". Distance: " << getDistance(ele->GetCurrentFloor(),target,ele->GetPosition()) << " ETA: " << getQueueLength(ele,target));
+
+	// if list empty, just add
+	if (elevs.empty())
+	{
+		elevs.push_front(ele);
+		return;
+	}
+
+	// otherwise find the right position to insert
+	// NOTE: list is sorted by travel time to target
+	auto i = elevs.begin();
+	for(; i != elevs.end(); ++i)
+	{
+		// insert before
+		if (getQueueLength((*i),target) > getQueueLength(ele,target))
+		{
+			// the insert happens after the loop anyway
+			break;
+		}
+	}
+	// if new floor is above all others, insert at the end
+	elevs.insert(i,ele);
+}
+
+// pick the elevator with shortest travel time to target
+Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
+{
+	Interface *interf = static_cast<Interface*>(e.GetSender());
+	Person *person = static_cast<Person*>(e.GetEventHandler());
+	Floor *target = person->GetCurrentFloor();
+
+	// get all elevators that stop at this floor
+	list<Elevator*> elevs;
+	for(int i = 0; i < interf->GetLoadableCount(); ++i)
+	{
+		Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
+
+		// add new elevator with empty queue global map
+		if (queue_.find(ele) == queue_.end())
+		{
+			set<Floor*> q;
+			// WARNING: we rely on the hope that this COPIES the created pair
+			queue_.insert(make_pair(ele,q));
+			DEBUG_S("[Elevator " << ele->GetId() << "] Queue created");
+		}
+
+		// sort them by estimated travel time
+		// exclude malfunctioning
+		if (!malfunctions_.count(ele))
+			addToList(elevs,ele,target);
+	}
+
+	// pick the one which would be there first
+	if (!elevs.empty())
+		return elevs.front();
+	else
+		return nullptr;
+}
 
 /**
  * collect and pretty print environment information

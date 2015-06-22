@@ -62,43 +62,53 @@ class ElevatorLogic: public EventHandler
 		void Initialize(Environment &env);
 
 	private:
-		void HandleNotify(Environment &env, const Event &e);
-		void HandleInteract(Environment &env, const Event &e);
-		void HandleMoving(Environment &env, const Event &e);
-		void HandleStopped(Environment &env, const Event &e);
-		void HandleOpening(Environment &env, const Event &e);
-		void HandleOpened(Environment &env, const Event &e);
-		void HandleClosing(Environment &env, const Event &e);
-		void HandleClosed(Environment &env, const Event &e);
-		void HandleEntering(Environment &env, const Event &e);
-		void HandleEntered(Environment &env, const Event &e);
-		void HandleExiting(Environment &env, const Event &e);
-		void HandleExited(Environment &env, const Event &e);
-		void HandleBeeping(Environment &env, const Event &e);
-		void HandleBeeped(Environment &env, const Event &e);
-		void HandleMalfunction(Environment &env, const Event &e);
-		void HandleFixed(Environment &env, const Event &e);
-		void HandleAll(Environment &env, const Event &e);
+		void HandleNotify     	(Environment &env, const Event &e);
+		void HandleInteract   	(Environment &env, const Event &e);
+		void HandleMoving     	(Environment &env, const Event &e);
+		void HandleStopped    	(Environment &env, const Event &e);
+		void HandleOpening    	(Environment &env, const Event &e);
+		void HandleOpened     	(Environment &env, const Event &e);
+		void HandleClosing    	(Environment &env, const Event &e);
+		void HandleClosed     	(Environment &env, const Event &e);
+		void HandleEntering   	(Environment &env, const Event &e);
+		void HandleEntered    	(Environment &env, const Event &e);
+		void HandleExiting    	(Environment &env, const Event &e);
+		void HandleExited     	(Environment &env, const Event &e);
+		void HandleBeeping    	(Environment &env, const Event &e);
+		void HandleBeeped     	(Environment &env, const Event &e);
+		void HandleMalfunction	(Environment &env, const Event &e);
+		void HandleFixed      	(Environment &env, const Event &e);
+		void HandleAll        	(Environment &env, const Event &e);
 
+
+		// helper functions
+		Elevator*	pickElevator  	(Environment &env, const Event &e);
+		int      	getQueueLength	(Elevator*, Floor*);
+		int      	getTravelTime 	(Elevator*, Floor*, Floor*, bool direct = true);
+		double   	getDistance   	(Floor*, Floor*, double pos = 0.5);
+		void     	addToList     	(list<Elevator*>&, Elevator*, Floor*);
+		bool     	onTheWay      	(Elevator*, Floor*);
 
 		// elevator states
-		map<Elevator*,set<Floor*>> queue_;
-		set<Elevator*> elevators_;
-		set<Elevator*> moving_;
-		set<Elevator*> open_;
-		set<Elevator*> beeping_;
-		set<Elevator*> malfunctions_;
-		map<Elevator*,int> loads_;
-		map<Person*,int> deadlines_;
+		map<Elevator*,set<Floor*>>	queue_;
+		set<Elevator*>            	elevators_;
+		set<Elevator*>            	moving_;
+		set<Elevator*>            	movingUp_;
+		set<Elevator*>            	movingDown_;
+		set<Elevator*>            	open_;
+		set<Elevator*>            	beeping_;
+		set<Elevator*>            	malfunctions_;
+		map<Elevator*,int>        	loads_;
+		map<Person*,int>          	deadlines_;
 
 		int time_;	// last time we checked
 
 		// environment information
-		set<Floor*> allFloors;
-		set<Interface*> allInterfaces;
-		map<Person*,pair<int,int>> allPersons;	// persons with start floor and start time
-		map<Elevator*,int> allElevators;      	// elevator with starting floor
-		set<Event> allEvents;                 	// all malfunction and fixed events
+		set<Floor*>               	allFloors;
+		set<Interface*>           	allInterfaces;
+		map<Person*,pair<int,int>>	allPersons;  	// persons with start floor and start time
+		map<Elevator*,int>        	allElevators;	// elevator with starting floor
+		set<Event>                	allEvents;   	// all malfunction and fixed events
 
 		string eventlog;
 
