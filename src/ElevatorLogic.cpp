@@ -99,6 +99,12 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				env.SendEvent("Elevator::Stop",0,this,ele);
 				if (queue_[ele].erase(current))
 					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from queue");
+				if (queue_[ele].empty())
+				{
+					DEBUG_S("[Elevator " << ele->GetId() << "] Queue now empty, removing movement direction");
+					movingUp_.erase(ele);
+					movingDown_.erase(ele);
+				}
 			}
 			// otherwise continue movement and report back later
 			else
@@ -380,24 +386,52 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 
 	if (queue_[ele].empty())
 		DEBUG_S("[Elevator " << ele->GetId() << "] Queue empty, nothing to do.");
-	else if
-	(
-		//TODO: get up/down queue
-		(movingUp_.count(ele) && hasUpQueue(ele))
-		||	!hasDownQueue(ele)
-	)
+	else if ((movingUp_.count(ele) && hasUpQueue(ele)) || !hasDownQueue(ele))
 	{
 		env.SendEvent("Elevator::Up",0,this,ele);
 		movingDown_.erase(ele);
 		movingUp_.insert(ele);
 		moving_.insert(ele);
 	}
-	else
+	else if ((movingDown_.count(ele) && hasDownQueue(ele)) || !hasUpQueue(ele))
 	{
 		env.SendEvent("Elevator::Down",0,this,ele);
 		movingUp_.erase(ele);
 		movingDown_.insert(ele);
 		moving_.insert(ele);
+	}
+	// if no movement direction given but queue not empty
+	// decide by counting waiting people above and below
+	else
+	{
+		int up = 0;
+		int down = 0;
+
+		for (auto const &p : deadlines_)
+		{
+
+			if (ele->GetCurrentFloor() != p.first->GetCurrentFloor())
+			{
+				if (ele->GetCurrentFloor()->IsAbove(p.first->GetCurrentFloor()))
+					up++;
+				else if (ele->GetCurrentFloor()->IsBelow(p.first->GetCurrentFloor()))
+					down++;
+			}
+		}
+
+		// NOTE: will still go up first if number of people is the same
+		if (up >= down)
+		{
+			env.SendEvent("Elevator::Up",0,this,ele);
+			movingUp_.insert(ele);
+			moving_.insert(ele);
+		}
+		else
+		{
+			env.SendEvent("Elevator::Down",0,this,ele);
+			movingDown_.insert(ele);
+			moving_.insert(ele);
+		}
 	}
 
 	DEBUG_S("[Elevator " << ele->GetId() << "] Queue:");
