@@ -19,19 +19,22 @@
 	#define DEBUG(x) x
 	#define DEBUG_S(x) do \
 		{ \
-			ostringstream out; \
+			ostringstream err; \
 			if (debugging_output) \
-			{ cout << "\tDEBUG: " << x << endl; \
-			  out << "\tDEBUG: " << x << "<br>" << endl; } \
-			eventlog.append(out.str()); \
+			{	cout << "\tDEBUG: " << x << endl; \
+				err << "\tDEBUG: " << x << "<br>" << endl; } \
+			eventlog.append(err.str()); \
 		} while (0)
 
 	// the #x puts "x" and is call stringizing operator
 	// @see https://msdn.microsoft.com/en-us/library/7e3a913x.aspx
 	#define DEBUG_V(x) do \
 		{ \
+			ostringstream err; \
 			if (debugging_output) \
-			{ cout << "\tDEBUG " << #x << ": " << x << endl; } \
+			{	cout << "\tDEBUG: " << #x << ": " << x << endl; \
+				err << "\tDEBUG: " << #x << ": " << x << "<br>" << endl; } \
+			eventlog.append(err.str()); \
 		} while (0)
 #else
 	#define DEBUG(x)
@@ -88,7 +91,6 @@ class ElevatorLogic: public EventHandler
 		double   	getDistance      	(Floor*, Floor*, double pos = 0.5);
 		void     	addToList        	(list<Elevator*>&, Elevator*, Floor*);
 		bool     	onTheWay         	(Elevator*, Floor*);
-		void     	sendToFloor      	(Environment&, Elevator*, Floor*);
 		void     	continueOperation	(Environment&, Elevator*);
 		bool     	hasUpQueue       	(Elevator*);
 		bool     	hasDownQueue     	(Elevator*);

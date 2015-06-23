@@ -96,8 +96,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				&& (inPosition(ele)))
 			{
 				env.SendEvent("Elevator::Stop",0,this,ele);
-				if (queueInt_[ele].erase(current) || queueExt_[ele].erase(current))
-					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from queue");
+				if (queueInt_[ele].erase(current))
+					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from internal queue");
+				if  (queueExt_[ele].erase(current))
+					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from external queue");
 				if (queueInt_[ele].empty() && queueExt_[ele].empty())
 				{
 					DEBUG_S("[Elevator " << ele->GetId() << "] Queues now empty, removing movement direction");
@@ -203,7 +205,6 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 		throw runtime_error(showTestCase() + "An elevator started moving while its doors were open.");
 	moving_.insert(ele);
 	elevators_.insert(ele);
-
 	env.SendEvent("Interface::Notify",0,ele,ele);
 }
 
@@ -215,7 +216,6 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 	if (!moving_.count(ele) && inPosition(ele))
 	{
 		env.SendEvent("Elevator::Open", 0, this, ele);
-		open_.insert(ele);
 	}
 }
 
@@ -226,12 +226,13 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 		throw runtime_error(showTestCase() + "An elevator opened its doors when it was not at the center of a floor.");
 	if (moving_.count(ele))
 		throw runtime_error(showTestCase() + "An elevator opened its doors while it was moving.");
+	open_.insert(ele);
 }
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
-	if (!malfunctions_.count(ele))
+	if (!malfunctions_.count(ele) && !beeping_.count(ele))
 		env.SendEvent("Elevator::Close",0,this,ele);
 }
 
@@ -240,6 +241,7 @@ void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	if (beeping_.count(ele))
 		throw runtime_error(showTestCase() + "An elevator closed the doors while it was beeping.");
+	open_.erase(ele);
 }
 
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
@@ -247,12 +249,28 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	open_.erase(ele);
 
-	continueOperation(env,ele);
+	// exclude overloaded
+	bool overloaded = false;
+	auto iter = loads_.find(ele);
+	if (iter != loads_.end())
+		if (iter->second > ele->GetMaxLoad())
+			overloaded = true;
+
+	if (!malfunctions_.count(ele) && !overloaded)
+		continueOperation(env,ele);
+	else if (overloaded)
+	{
+		env.SendEvent("Elevator::Open",0,this,ele);
+		env.SendEvent("Elevator::Beep",3,this,ele);
+		beeping_.insert(ele);
+	}
+
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 {
 	Person *person = static_cast<Person*>(e.GetSender());
+	DEBUG_S("[Person " << person->GetId() << "] Had " << (deadlines_[person]-e.GetTime()) << " ticks left");
 	deadlines_.erase(deadlines_.find(person));
 }
 
@@ -264,9 +282,15 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	if (!iter.second)
 		iter.first->second += person->GetWeight();
 
+	if (open_.count(ele) && loads_[ele] > ele->GetMaxLoad() && !beeping_.count(ele))
+	{
+		env.SendEvent("Elevator::Beep",0,this,ele);
+		beeping_.insert(ele);
+	}
+
 	// read passenger's mind
 	if (ele->HasFloor(person->GetFinalFloor()))
-		sendToFloor(env,ele,person->GetFinalFloor());
+		queueInt_[ele].insert(person->GetFinalFloor());
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
@@ -277,8 +301,16 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 {
 	Person *person = static_cast<Person*>(e.GetSender());
 	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
+
 	auto iter = loads_.find(ele);
 	iter->second -= person->GetWeight();
+
+	if (beeping_.count(ele) && loads_[ele] <= ele->GetMaxLoad())
+	{
+		env.SendEvent("Elevator::StopBeep",0,this,ele);
+		beeping_.erase(ele);
+	}
+
 }
 
 void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
@@ -288,9 +320,9 @@ void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
 		throw runtime_error(showTestCase() + "An elevator started beeping while its doors were closed.");
 	auto iter = loads_.find(ele);
 	if (iter == loads_.end())
-		throw runtime_error(showTestCase() + "An elevator started elevator although it was not overloaded.");
+		throw runtime_error(showTestCase() + "An elevator started beeping although it was not overloaded.");
 	if (iter->second <= ele->GetMaxLoad())
-		throw runtime_error(showTestCase() + "An elevator started elevator although it was not overloaded.");
+		throw runtime_error(showTestCase() + "An elevator started beeping although it was not overloaded.");
 	beeping_.insert(ele);
 }
 
@@ -298,6 +330,10 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 {
 	 Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	 beeping_.erase(ele);
+	 if (!malfunctions_.count(ele))
+	 {
+	 	env.SendEvent("Elevator::Close",0,this,ele);
+	 }
 }
 
 
@@ -392,42 +428,6 @@ bool ElevatorLogic::inPosition(Elevator *ele)
 	return (ele->GetPosition() >= 0.49 && ele->GetPosition() <= 0.51);
 }
 
-// send elevator into general direction of given floor
-// WARNING: does not check if floor is reachable.
-void ElevatorLogic::sendToFloor(Environment &env, Elevator *ele, Floor *target)
-{
-	// DEBUG_S("Sending elevator " << ele->GetId() << " to floor " << target->GetId());
-	// // find out current floor
-	// Floor *current = ele->GetCurrentFloor();
-
-	// if (queue_.find(ele) == queue_.end())
-	//	throw runtime_error(showTestCase() + "An elevator was trying to add a floor to queue without having a queue.");
-
-	// // add target floor to queue in any case
-	// if (queue_[ele].insert(target).second)
-	//	DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
-
-	// // catch bad behaviors
-	// if (moving_.count(ele))
-	// {
-	//	DEBUG_S("Already moving, do nothing");
-	//	return;
-	// }
-	// if (open_.count(ele))
-	// {
-	//	DEBUG_S("Door open, do nothing");
-	//	return;
-	// }
-	// if (busy_.count(ele))
-	// {
-	//	DEBUG_S("Busy, do nothing");
-	//	return;
-	// }
-
-	// // send into right direction
-	// continueOperation(env,ele);
-}
-
 void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 {
 	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
@@ -438,8 +438,17 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 	q.insert(queueInt_[ele].begin(),queueInt_[ele].end());
 	q.insert(queueExt_[ele].begin(),queueExt_[ele].end());
 
-
-	// catch bad behaviors
+	if (q.empty())
+	{
+		DEBUG_S("[Elevator " << ele->GetId() << "] Queue empty, nothing to do.");
+		return;
+	}
+	// catch bad behavior
+	if (moving_.count(ele) && inPosition(ele) && q.count(ele->GetCurrentFloor()))
+	{
+		DEBUG_S("We should have stopped here");
+		// env.SendEvent("Interface::Notify",0,ele,ele);
+	}
 	if (moving_.count(ele))
 	{
 		DEBUG_S("Already moving, do nothing");
@@ -455,14 +464,15 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		DEBUG_S("Busy, do nothing");
 		return;
 	}
-
-	if (q.empty())
-		DEBUG_S("[Elevator " << ele->GetId() << "] Queue empty, nothing to do.");
-	else if (malfunctions_.count(ele))
+	if (malfunctions_.count(ele))
 	{
 		DEBUG_S("[Elevator " << ele->GetId() << "] Malfunctioning, do nothing.");
+		return;
 	}
-	else if ((movingUp_.count(ele) && hasUpQueue(ele)) || !hasDownQueue(ele))
+
+
+
+	if ((movingUp_.count(ele) && hasUpQueue(ele)) || !hasDownQueue(ele))
 	{
 		env.SendEvent("Elevator::Up",0,this,ele);
 		movingDown_.erase(ele);
