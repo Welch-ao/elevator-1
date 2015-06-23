@@ -98,7 +98,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				if (moving_.count(ele))
 					env.SendEvent("Elevator::Stop",0,this,ele);
 				else
+				{
 					env.SendEvent("Elevator::Open",0,this,ele);
+					opening_.insert(ele);
+				}
 				if (queueInt_[ele].erase(current))
 					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from internal queue");
 				if  (queueExt_[ele].erase(current))
@@ -156,8 +159,9 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				if (ele)
 				{
 					// add target floor to external queue
-					if (queueExt_[ele].insert(target).second)
-						DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to external queue");
+					if (!(ele->GetCurrentFloor() == target && opening_.count(ele)))
+						if (queueExt_[ele].insert(target).second)
+							DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to external queue");
 				}
 				// if none can come, try again next tick
 				else
@@ -221,7 +225,8 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 
 	if (!moving_.count(ele) && inPosition(ele))
 	{
-		env.SendEvent("Elevator::Open", 0, this, ele);
+		env.SendEvent("Elevator::Open",0,this,ele);
+		opening_.insert(ele);
 	}
 }
 
@@ -238,8 +243,22 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
-	if (!malfunctions_.count(ele) && !beeping_.count(ele))
+
+	opening_.erase(ele);
+
+	bool overloaded = false;
+	auto iter = loads_.find(ele);
+	if (iter != loads_.end())
+		if (iter->second > ele->GetMaxLoad())
+			overloaded = true;
+
+	if (!malfunctions_.count(ele) && !beeping_.count(ele) && !overloaded)
+	{
 		env.SendEvent("Elevator::Close",0,this,ele);
+		closing_.insert(ele);
+	}
+	if (overloaded)
+		env.SendEvent("Elevator::Beep",3,this,ele);
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
@@ -247,13 +266,13 @@ void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	if (beeping_.count(ele))
 		throw runtime_error(showTestCase() + "An elevator closed the doors while it was beeping.");
-	open_.erase(ele);
 }
 
 void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	open_.erase(ele);
+	closing_.erase(ele);
 
 	// exclude overloaded
 	bool overloaded = false;
@@ -267,10 +286,8 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 	else if (overloaded)
 	{
 		env.SendEvent("Elevator::Open",0,this,ele);
-		env.SendEvent("Elevator::Beep",3,this,ele);
-		beeping_.insert(ele);
+		opening_.insert(ele);
 	}
-
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -288,10 +305,9 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	if (!iter.second)
 		iter.first->second += person->GetWeight();
 
-	if (open_.count(ele) && loads_[ele] > ele->GetMaxLoad() && !beeping_.count(ele))
+	if (!closing_.count(ele) && open_.count(ele) && loads_[ele] > ele->GetMaxLoad() && !beeping_.count(ele))
 	{
 		env.SendEvent("Elevator::Beep",0,this,ele);
-		beeping_.insert(ele);
 	}
 
 	// read passenger's mind
@@ -318,9 +334,7 @@ void ElevatorLogic::HandleExited(Environment &env, const Event &e)
 	if (beeping_.count(ele) && loads_[ele] <= ele->GetMaxLoad())
 	{
 		env.SendEvent("Elevator::StopBeep",0,this,ele);
-		beeping_.erase(ele);
 	}
-
 }
 
 void ElevatorLogic::HandleBeeping(Environment &env, const Event &e)
@@ -342,7 +356,8 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 	 beeping_.erase(ele);
 	 if (!malfunctions_.count(ele))
 	 {
-	 	env.SendEvent("Elevator::Close",0,this,ele);
+		env.SendEvent("Elevator::Close",0,this,ele);
+		closing_.insert(ele);
 	 }
 }
 
@@ -352,9 +367,8 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	malfunctions_.insert(ele);
 
-	moving_.erase(ele);
-	movingUp_.erase(ele);
-	movingDown_.erase(ele);
+	if (moving_.count(ele))
+		env.SendEvent("Elevator::Stop",0,this,ele);
 
 	allEvents.push_back(e);
 	DEBUG_S("[NSA]: Tracking malfunction");
@@ -397,7 +411,10 @@ void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 	DEBUG_S("[NSA]: Tracking fixed");
 
 	if (open_.count(ele))
+	{
 		env.SendEvent("Elevator::Close",0,this,ele);
+		closing_.insert(ele);
+	}
 	continueOperation(env,ele);
 }
 

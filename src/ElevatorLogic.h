@@ -105,6 +105,8 @@ class ElevatorLogic: public EventHandler
 		set<Elevator*>            	movingUp_;
 		set<Elevator*>            	movingDown_;
 		set<Elevator*>            	open_;
+		set<Elevator*>            	opening_;
+		set<Elevator*>            	closing_;
 		set<Elevator*>            	busy_;
 		set<Elevator*>            	beeping_;
 		set<Elevator*>            	malfunctions_;
