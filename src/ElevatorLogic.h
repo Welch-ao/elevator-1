@@ -115,7 +115,7 @@ class ElevatorLogic: public EventHandler
 		set<Interface*>           	allInterfaces;
 		map<Person*,pair<int,int>>	allPersons;  	// persons with start floor and start time
 		map<Elevator*,int>        	allElevators;	// elevator with starting floor
-		set<Event>                	allEvents;   	// all malfunction and fixed events
+		list<Event>               	allEvents;   	// all malfunction and fixed events
 
 		string eventlog;
 

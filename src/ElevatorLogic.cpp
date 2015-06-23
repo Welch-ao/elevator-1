@@ -30,17 +30,16 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Interface::Interact", this, &ElevatorLogic::HandleInteract);
 	env.RegisterEventHandler("Elevator::Moving", this, &ElevatorLogic::HandleMoving);
 	env.RegisterEventHandler("Elevator::Stopped", this, &ElevatorLogic::HandleStopped);
-	env.RegisterEventHandler("Elevator::Opened", this, &ElevatorLogic::HandleOpened);
-	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
-	env.RegisterEventHandler("Elevator::Stopped", this, &ElevatorLogic::HandleStopped);
 	env.RegisterEventHandler("Elevator::Opening", this, &ElevatorLogic::HandleOpening);
+	env.RegisterEventHandler("Elevator::Opened", this, &ElevatorLogic::HandleOpened);
+	env.RegisterEventHandler("Elevator::Closing", this, &ElevatorLogic::HandleClosing);
+	env.RegisterEventHandler("Elevator::Closed", this, &ElevatorLogic::HandleClosed);
 	env.RegisterEventHandler("Person::Entering", this, &ElevatorLogic::HandleEntering);
 	env.RegisterEventHandler("Person::Entered", this, &ElevatorLogic::HandleEntered);
 	env.RegisterEventHandler("Person::Exiting", this, &ElevatorLogic::HandleExiting);
 	env.RegisterEventHandler("Person::Exited", this, &ElevatorLogic::HandleExited);
 	env.RegisterEventHandler("Elevator::Beeping", this, &ElevatorLogic::HandleBeeping);
 	env.RegisterEventHandler("Elevator::Beeped", this, &ElevatorLogic::HandleBeeped);
-	env.RegisterEventHandler("Elevator::Closing", this, &ElevatorLogic::HandleClosing);
 	env.RegisterEventHandler("Elevator::Malfunction", this, &ElevatorLogic::HandleMalfunction);
 	env.RegisterEventHandler("Elevator::Fixed", this, &ElevatorLogic::HandleFixed);
 	env.RegisterEventHandler("Environment::All", this, &ElevatorLogic::HandleAll);
@@ -222,7 +221,8 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
-	env.SendEvent("Elevator::Close", 0, this, ele);
+	if (!malfunctions_.count(ele))
+		env.SendEvent("Elevator::Close",0,this,ele);
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
@@ -293,14 +293,22 @@ void ElevatorLogic::HandleBeeped(Environment &env, const Event &e)
 
 void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 {
-	 Elevator *ele = static_cast<Elevator*>(e.GetSender());
-	 malfunctions_.insert(ele);
+	Elevator *ele = static_cast<Elevator*>(e.GetSender());
+	malfunctions_.insert(ele);
+
+	allEvents.push_back(e);
+	DEBUG_S("[NSA]: Tracking malfunction");
 }
 
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 {
-	 Elevator *ele = static_cast<Elevator*>(e.GetSender());
-	 malfunctions_.erase(ele);
+	Elevator *ele = static_cast<Elevator*>(e.GetSender());
+	malfunctions_.erase(ele);
+
+	allEvents.push_back(e);
+	DEBUG_S("[NSA]: Tracking fixed");
+
+	continueOperation(env,ele);
 }
 
 void ElevatorLogic::HandleAll(Environment &env, const Event &e)
@@ -386,6 +394,10 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 
 	if (queue_[ele].empty())
 		DEBUG_S("[Elevator " << ele->GetId() << "] Queue empty, nothing to do.");
+	else if (malfunctions_.count(ele))
+	{
+		DEBUG_S("[Elevator " << ele->GetId() << "] Malfunctioning, do nothing.");
+	}
 	else if ((movingUp_.count(ele) && hasUpQueue(ele)) || !hasDownQueue(ele))
 	{
 		env.SendEvent("Elevator::Up",0,this,ele);
