@@ -115,7 +115,10 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			{
 				// but only if not malfunctioning
 				if (!malfunctions_.count(ele))
-					nextNotification_ = env.SendEvent("Interface::Notify",1,ele,ele);
+				{
+					nextNotification_.erase(ele);
+					nextNotification_.insert(make_pair(ele,env.SendEvent("Interface::Notify",1,ele,ele)));
+				}
 			}
 		}
 		// handle person's call
@@ -293,7 +296,11 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 
 	// read passenger's mind
 	if (ele->HasFloor(person->GetFinalFloor()))
+	{
 		queueInt_[ele].insert(person->GetFinalFloor());
+		DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << person->GetFinalFloor()->GetId() << " to internal queue");
+	}
+
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
@@ -373,7 +380,10 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 		}
 		// if in position, clear internal queue (and optionally call new elevators for passengers)
 		if (inPosition(ele))
+		{
 			queueInt_[ele].clear();
+			DEBUG_S("[Elevator " << ele->GetId() << "] Cleared internal queue");
+		}
 	}
 
 }
@@ -447,27 +457,30 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		return;
 	}
 	// catch bad behavior
-	if (moving_.count(ele) && inPosition(ele) && q.count(ele->GetCurrentFloor()))
+	if (inPosition(ele) && q.count(ele->GetCurrentFloor()))
 	{
-		if (env.CancelEvent(nextNotification_))
+		if (nextNotification_.find(ele) != nextNotification_.end())
 		{
-			env.SendEvent("Interface::Notify",0,ele,ele);
-			return;
+			if (env.CancelEvent(nextNotification_[ele]))
+			{
+				env.SendEvent("Interface::Notify",0,ele,ele);
+				return;
+			}
 		}
 	}
 	if (moving_.count(ele))
 	{
-		DEBUG_S("Already moving, do nothing");
+		DEBUG_S("[Elevator " << ele->GetId() << "] Already moving, do nothing");
 		return;
 	}
 	if (open_.count(ele))
 	{
-		DEBUG_S("Door open, do nothing");
+		DEBUG_S("[Elevator " << ele->GetId() << "] Door open, do nothing");
 		return;
 	}
 	if (busy_.count(ele))
 	{
-		DEBUG_S("Busy, do nothing");
+		DEBUG_S("[Elevator " << ele->GetId() << "] Busy, do nothing");
 		return;
 	}
 	if (malfunctions_.count(ele))
@@ -475,8 +488,6 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		DEBUG_S("[Elevator " << ele->GetId() << "] Malfunctioning, do nothing.");
 		return;
 	}
-
-
 
 	if ((movingUp_.count(ele) && hasUpQueue(ele)) || !hasDownQueue(ele))
 	{

@@ -110,9 +110,9 @@ class ElevatorLogic: public EventHandler
 		set<Elevator*>            	malfunctions_;
 		map<Elevator*,int>        	loads_;
 		map<Person*,int>          	deadlines_;
+		map<Elevator*,int>        	nextNotification_;	// next notifciation event id
 
-		int time_;            	// last time we checked
-		int nextNotification_;	// next notifciation event id
+		int	time_;	// last time we checked
 
 		// environment information
 		set<Floor*>               	allFloors;
