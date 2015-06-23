@@ -216,6 +216,7 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
+	env.SendEvent("Elevator::Close", 0, this, ele);
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
@@ -236,9 +237,7 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 {
 	Person *person = static_cast<Person*>(e.GetSender());
-	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	deadlines_.erase(deadlines_.find(person));
-	env.SendEvent("Elevator::Close", 0, this, ele);
 }
 
 void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
