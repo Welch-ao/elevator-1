@@ -59,16 +59,44 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 			Floor *current = ele->GetCurrentFloor();
 
+			DEBUG
+			(
+				std::string state = "state unknown";
+				switch (ele->GetState())
+				{
+					// this should not happen
+					case 0:
+						state = "idle";
+						break;
+					case 1:
+						state = "moving UP";
+						break;
+					case 2:
+						state = "moving DOWN";
+						break;
+					// this should absolutely never happen
+					case 3:
+						state = "MALFUNCTION!!!";
+						break;
+					default:
+						break;
+				}
+
+				DEBUG_S
+				(
+					"[Elevator " << ele->GetId() << "] Floor " << ele->GetCurrentFloor()->GetId() << " (" << ele->GetPosition() << "), " << state
+				);
+			);
+
 			// catch possible null pointer
 			if (queue_.find(ele) == queue_.end())
 				throw runtime_error(showTestCase() + "An elevator was moving without having a queue.");
 
 			// stop if we're at the middle of any floor in the queue or at the upper/lower limit
-			if ((queue_[ele].count(current)	|| (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
+			if (moving_.count(ele) && (queue_[ele].count(current) || (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
 				&& (inPosition(ele)))
 			{
-				if (moving_.count(ele))
-					env.SendEvent("Elevator::Stop",0,this,ele);
+				env.SendEvent("Elevator::Stop",0,this,ele);
 				if (queue_[ele].erase(current))
 					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from queue");
 			}
@@ -201,6 +229,8 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	open_.erase(ele);
+
+	continueOperation(env,ele);
 }
 
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
@@ -218,6 +248,10 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	auto iter = loads_.insert(make_pair(ele, person->GetWeight()));
 	if (!iter.second)
 		iter.first->second += person->GetWeight();
+
+	// read passenger's mind
+	if (ele->HasFloor(person->GetFinalFloor()))
+		sendToFloor(env,ele,person->GetFinalFloor());
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
@@ -319,14 +353,7 @@ void ElevatorLogic::sendToFloor(Environment &env, Elevator *ele, Floor *target)
 	if (queue_[ele].insert(target).second)
 		DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
 
-	// if moving at the target floor, stop
-	if (current == target && moving_.count(ele) && inPosition(ele))
-	{
-		env.SendEvent("Elevator::Stop",0,this,ele);
-		return;
-	}
-
-	// catch bad behavior
+	// catch bad behaviors
 	if (moving_.count(ele))
 	{
 		DEBUG_S("Already moving, do nothing");
@@ -364,14 +391,15 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		env.SendEvent("Elevator::Up",0,this,ele);
 		movingDown_.erase(ele);
 		movingUp_.insert(ele);
+		moving_.insert(ele);
 	}
 	else
 	{
 		env.SendEvent("Elevator::Down",0,this,ele);
 		movingUp_.erase(ele);
 		movingDown_.insert(ele);
+		moving_.insert(ele);
 	}
-	moving_.insert(ele);
 
 	DEBUG_S("[Elevator " << ele->GetId() << "] Queue:");
 	for (auto const &f : queue_[ele])
@@ -829,5 +857,5 @@ void ElevatorLogic::logEvent(Environment &env, const Event &e)
 
 string ElevatorLogic::showTestCase()
 {
-	return (showFloors() + showElevators() + showPersons() + showInterfaces() + showEvents());
+	return (showFloors() + showElevators() + showPersons() + showInterfaces() + showEvents() + eventlog);
 }
