@@ -88,19 +88,19 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			);
 
 			// catch possible null pointer
-			if (queue_.find(ele) == queue_.end())
+			if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
 				throw runtime_error(showTestCase() + "An elevator was moving without having a queue.");
 
 			// stop if we're at the middle of any floor in the queue or at the upper/lower limit
-			if (moving_.count(ele) && (queue_[ele].count(current) || (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
+			if (moving_.count(ele) && (queueInt_[ele].count(current) || queueExt_[ele].count(current) || (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
 				&& (inPosition(ele)))
 			{
 				env.SendEvent("Elevator::Stop",0,this,ele);
-				if (queue_[ele].erase(current))
+				if (queueInt_[ele].erase(current) || queueExt_[ele].erase(current))
 					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from queue");
-				if (queue_[ele].empty())
+				if (queueInt_[ele].empty() && queueExt_[ele].empty())
 				{
-					DEBUG_S("[Elevator " << ele->GetId() << "] Queue now empty, removing movement direction");
+					DEBUG_S("[Elevator " << ele->GetId() << "] Queues now empty, removing movement direction");
 					movingUp_.erase(ele);
 					movingDown_.erase(ele);
 				}
@@ -132,6 +132,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 
 			// NOTE: interfaces have exactly one loadable
 			Loadable *loadable = interf->GetLoadable(0);
+			Elevator *ele;
 			// react to an interface interaction from outside the elevator
 			if (loadable->GetType() == "Elevator")
 			{
@@ -142,10 +143,14 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				);
 
 				// try to find the best fitting elevator
-				Elevator *ele = pickElevator(env,e);
+				ele = pickElevator(env,e);
 				// if it exists
 				if (ele)
-					sendToFloor(env,ele,target);
+				{
+					// add target floor to external queue
+					if (queueExt_[ele].insert(target).second)
+						DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to external queue");
+				}
 				// if none can come, try again next tick
 				else
 				{
@@ -157,11 +162,14 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			else
 			{
 				// get our current elevator by asking the person where it is
-				Elevator *ele = person->GetCurrentElevator();
+				ele = person->GetCurrentElevator();
 				// get target from the interface input
 				Floor *target = static_cast<Floor*>(loadable);
-				sendToFloor(env,ele,target);
+				// add target floor to internal queue
+				if (queueInt_[ele].insert(target).second)
+					DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to internal queue");
 			}
+			continueOperation(env,ele);
 		}
 
 }
@@ -308,6 +316,8 @@ void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 	allEvents.push_back(e);
 	DEBUG_S("[NSA]: Tracking fixed");
 
+	if (open_.count(ele))
+		env.SendEvent("Elevator::Close",0,this,ele);
 	continueOperation(env,ele);
 }
 
@@ -355,16 +365,48 @@ bool ElevatorLogic::inPosition(Elevator *ele)
 // WARNING: does not check if floor is reachable.
 void ElevatorLogic::sendToFloor(Environment &env, Elevator *ele, Floor *target)
 {
-	DEBUG_S("Sending elevator " << ele->GetId() << " to floor " << target->GetId());
-	// find out current floor
-	Floor *current = ele->GetCurrentFloor();
+	// DEBUG_S("Sending elevator " << ele->GetId() << " to floor " << target->GetId());
+	// // find out current floor
+	// Floor *current = ele->GetCurrentFloor();
 
-	if (queue_.find(ele) == queue_.end())
-		throw runtime_error(showTestCase() + "An elevator was trying to add a floor to queue without having a queue.");
+	// if (queue_.find(ele) == queue_.end())
+	//	throw runtime_error(showTestCase() + "An elevator was trying to add a floor to queue without having a queue.");
 
-	// add target floor to queue in any case
-	if (queue_[ele].insert(target).second)
-		DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
+	// // add target floor to queue in any case
+	// if (queue_[ele].insert(target).second)
+	//	DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
+
+	// // catch bad behaviors
+	// if (moving_.count(ele))
+	// {
+	//	DEBUG_S("Already moving, do nothing");
+	//	return;
+	// }
+	// if (open_.count(ele))
+	// {
+	//	DEBUG_S("Door open, do nothing");
+	//	return;
+	// }
+	// if (busy_.count(ele))
+	// {
+	//	DEBUG_S("Busy, do nothing");
+	//	return;
+	// }
+
+	// // send into right direction
+	// continueOperation(env,ele);
+}
+
+void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
+{
+	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
+		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without a queue.");
+
+	// create merged queue
+	set<Floor*> q;
+	q.insert(queueInt_[ele].begin(),queueInt_[ele].end());
+	q.insert(queueExt_[ele].begin(),queueExt_[ele].end());
+
 
 	// catch bad behaviors
 	if (moving_.count(ele))
@@ -383,16 +425,7 @@ void ElevatorLogic::sendToFloor(Environment &env, Elevator *ele, Floor *target)
 		return;
 	}
 
-	// send into right direction
-	continueOperation(env,ele);
-}
-
-void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
-{
-	if (queue_.find(ele) == queue_.end())
-		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without a queue.");
-
-	if (queue_[ele].empty())
+	if (q.empty())
 		DEBUG_S("[Elevator " << ele->GetId() << "] Queue empty, nothing to do.");
 	else if (malfunctions_.count(ele))
 	{
@@ -419,14 +452,14 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		int up = 0;
 		int down = 0;
 
-		for (auto const &p : deadlines_)
+		for (auto const &f : queueExt_[ele])
 		{
 
-			if (ele->GetCurrentFloor() != p.first->GetCurrentFloor())
+			if (ele->GetCurrentFloor() != f)
 			{
-				if (ele->GetCurrentFloor()->IsAbove(p.first->GetCurrentFloor()))
+				if (ele->GetCurrentFloor()->IsAbove(f))
 					up++;
-				else if (ele->GetCurrentFloor()->IsBelow(p.first->GetCurrentFloor()))
+				else if (ele->GetCurrentFloor()->IsBelow(f))
 					down++;
 			}
 		}
@@ -446,8 +479,18 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		}
 	}
 
-	DEBUG_S("[Elevator " << ele->GetId() << "] Queue:");
-	for (auto const &f : queue_[ele])
+	DEBUG_S("[Elevator " << ele->GetId() << "] Complete queue:");
+	for (auto const &f : q)
+	{
+		DEBUG_S(f->GetId());
+	}
+	DEBUG_S("[Elevator " << ele->GetId() << "] Internal Queue:");
+	for (auto const &f : queueInt_[ele])
+	{
+		DEBUG_S(f->GetId());
+	}
+	DEBUG_S("[Elevator " << ele->GetId() << "] External Queue:");
+	for (auto const &f : queueExt_[ele])
 	{
 		DEBUG_S(f->GetId());
 	}
@@ -455,9 +498,13 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 
 bool ElevatorLogic::hasUpQueue(Elevator *ele)
 {
-	if (queue_.find(ele) != queue_.end())
+	if (queueInt_.find(ele) != queueInt_.end() && queueExt_.find(ele) != queueExt_.end())
 	{
-		for (auto const& f : queue_[ele])
+		set<Floor*> q;
+		q.insert(queueInt_[ele].begin(),queueInt_[ele].end());
+		q.insert(queueExt_[ele].begin(),queueExt_[ele].end());
+
+		for (auto const& f : q)
 		{
 			if (ele->GetCurrentFloor()->IsAbove(f))
 				return true;
@@ -468,9 +515,13 @@ bool ElevatorLogic::hasUpQueue(Elevator *ele)
 
 bool ElevatorLogic::hasDownQueue(Elevator *ele)
 {
-	if (queue_.find(ele) != queue_.end())
+	if (queueInt_.find(ele) != queueInt_.end() && queueExt_.find(ele) != queueExt_.end())
 	{
-		for (auto const& f : queue_[ele])
+		set<Floor*> q;
+		q.insert(queueInt_[ele].begin(),queueInt_[ele].end());
+		q.insert(queueExt_[ele].begin(),queueExt_[ele].end());
+
+		for (auto const& f : q)
 		{
 			if (ele->GetCurrentFloor()->IsBelow(f))
 				return true;
@@ -541,11 +592,16 @@ int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b, bool direct)
 int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 {
 	// catch possible null pointer
-	if (queue_.find(ele) == queue_.end())
+	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
 		throw runtime_error(showTestCase() + "An elevator was trying to calculate travel time without having a queue.");
 
+	// create merged queue
+	set<Floor*> q;
+	q.insert(queueInt_[ele].begin(),queueInt_[ele].end());
+	q.insert(queueExt_[ele].begin(),queueExt_[ele].end());
+
 	// on empty queue or unmoved elevator
-	if (queue_[ele].empty())
+	if (q.empty())
 		// get direct travel time to target
 		return getTravelTime(ele,ele->GetCurrentFloor(),target,true);
 
@@ -559,7 +615,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 	{
 		while (cur != target)
 		{
-			if (queue_[ele].count(cur))
+			if (q.count(cur))
 			{
 				// also consider time for opening/closing door
 				result += getTravelTime(ele,prev,cur) + 6;
@@ -572,7 +628,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 	{
 		while (cur != target)
 		{
-			if (queue_[ele].count(cur))
+			if (q.count(cur))
 			{
 				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
@@ -586,7 +642,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		// get all the way to the top
 		while (cur != nullptr)
 		{
-			if (queue_[ele].count(cur))
+			if (q.count(cur))
 			{
 				// also consider time for opening/closing door
 				result += getTravelTime(ele,prev,cur) + 6;
@@ -598,7 +654,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		cur = ele->GetCurrentFloor();
 		while (cur != target)
 		{
-			if (queue_[ele].count(cur))
+			if (q.count(cur))
 			{
 				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
@@ -611,7 +667,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		// get all the way to the top
 		while (cur != nullptr)
 		{
-			if (queue_[ele].count(cur))
+			if (q.count(cur))
 			{
 				// also consider time for opening/closing door
 				result += getTravelTime(ele,prev,cur) + 6;
@@ -623,7 +679,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		cur = ele->GetCurrentFloor();
 		while (cur != target)
 		{
-			if (queue_[ele].count(cur))
+			if (q.count(cur))
 			{
 				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
@@ -637,7 +693,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		DEBUG_S("Case not considered");
 		DEBUG_V(ele->GetId());
 		DEBUG_V(onTheWay(ele,target));
-		DEBUG_V(queue_[ele].empty());
+		DEBUG_V(q.empty());
 		DEBUG_V(moving_.count(ele));
 		DEBUG_V(movingUp_.count(ele));
 		DEBUG_V(movingDown_.count(ele));
@@ -689,12 +745,13 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 		Elevator *ele = static_cast<Elevator*>(interf->GetLoadable(i));
 
 		// add new elevator with empty queue global map
-		if (queue_.find(ele) == queue_.end())
+		if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
 		{
 			set<Floor*> q;
 			// WARNING: we rely on the hope that this COPIES the created pair
-			queue_.insert(make_pair(ele,q));
-			DEBUG_S("[Elevator " << ele->GetId() << "] Queue created");
+			queueInt_.insert(make_pair(ele,q));
+			queueExt_.insert(make_pair(ele,q));
+			DEBUG_S("[Elevator " << ele->GetId() << "] Queues created");
 		}
 
 		// exclude overloaded

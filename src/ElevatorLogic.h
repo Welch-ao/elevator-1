@@ -96,7 +96,8 @@ class ElevatorLogic: public EventHandler
 
 
 		// elevator states
-		map<Elevator*,set<Floor*>>	queue_;
+		map<Elevator*,set<Floor*>>	queueInt_;
+		map<Elevator*,set<Floor*>>	queueExt_;
 		set<Elevator*>            	elevators_;
 		set<Elevator*>            	moving_;
 		set<Elevator*>            	movingUp_;
