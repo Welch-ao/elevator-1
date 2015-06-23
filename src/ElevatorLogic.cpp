@@ -64,13 +64,12 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				throw runtime_error(showTestCase() + "An elevator was moving without having a queue.");
 
 			// stop if we're at the middle of any floor in the queue or at the upper/lower limit
-			if ((queue_[ele].count(current)
-				|| ele->IsHighestFloor(current) || ele->IsLowestFloor(current))
-				&&	(inPosition(ele))
-				)
+			if ((queue_[ele].count(current)	|| (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
+				&& (inPosition(ele)))
 			{
 				env.SendEvent("Elevator::Stop",0,this,ele);
-				queue_[ele].erase(current);
+				if (queue_[ele].erase(current))
+					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from queue");
 			}
 			// otherwise continue movement and report back later
 			else
@@ -305,7 +304,7 @@ void ElevatorLogic::sendToFloor(Environment &env, Elevator *ele, Floor *target)
 
 	// add target floor to queue in any case
 	if (queue_[ele].insert(target).second)
-		DEBUG_S("[Elevator" << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
+		DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
 
 	// if moving at the target floor, stop
 	if (current == target && moving_.count(ele) && inPosition(ele))
@@ -360,6 +359,12 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		movingDown_.insert(ele);
 	}
 	moving_.insert(ele);
+
+	DEBUG_S("[Elevator " << ele->GetId() << "] Queue:");
+	for (auto const &f : queue_[ele])
+	{
+		DEBUG_S(f->GetId());
+	}
 }
 
 bool ElevatorLogic::hasUpQueue(Elevator *ele)
@@ -558,7 +563,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 // add elevator to a list sorted by time to travel to a target floor
 void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* target)
 {
-	DEBUG_S("Considering elevator " << ele->GetId() <<
+	DEBUG_S("Considering elevator " << ele->GetId() << " at floor " << ele->GetCurrentFloor()->GetId() <<
 	". Distance: " << getDistance(ele->GetCurrentFloor(),target,ele->GetPosition()) << " ETA: " << getQueueLength(ele,target));
 
 	// if list empty, just add
