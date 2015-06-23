@@ -21,9 +21,9 @@ test:
 	# write event logs and, if needed, error logs
 	#make clean &&
 	make all
-	rm ../log/*
+	rm ../log/* ../err/*
 	find ../passed -type f | while read line; do \
 		tmp=`mktemp`; \
 	    ../bin/cat "$$line" > ../log/$$(basename "$$line").log 2> $$tmp; \
-	    [ ! -s "$$tmp" ] || cp "$$tmp" ../log/$$(basename "$$line").err; \
+	    [ ! -s "$$tmp" ] || cp "$$tmp" ../err/$$(basename "$$line").err; \
 	done; \

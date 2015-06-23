@@ -67,7 +67,8 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			if ((queue_[ele].count(current)	|| (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
 				&& (inPosition(ele)))
 			{
-				env.SendEvent("Elevator::Stop",0,this,ele);
+				if (moving_.count(ele))
+					env.SendEvent("Elevator::Stop",0,this,ele);
 				if (queue_[ele].erase(current))
 					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from queue");
 			}
@@ -186,6 +187,7 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 {
+	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
@@ -204,7 +206,9 @@ void ElevatorLogic::HandleClosed(Environment &env, const Event &e)
 void ElevatorLogic::HandleEntering(Environment &env, const Event &e)
 {
 	Person *person = static_cast<Person*>(e.GetSender());
+	Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
 	deadlines_.erase(deadlines_.find(person));
+	env.SendEvent("Elevator::Close", 0, this, ele);
 }
 
 void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
@@ -214,8 +218,6 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	auto iter = loads_.insert(make_pair(ele, person->GetWeight()));
 	if (!iter.second)
 		iter.first->second += person->GetWeight();
-
-	env.SendEvent("Elevator::Close", 0, this, ele);
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
@@ -264,6 +266,17 @@ void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 
 void ElevatorLogic::HandleAll(Environment &env, const Event &e)
 {
+	logEvent(env, e);
+
+	if (env.GetClock() != time_)
+	{
+		time_ = env.GetClock();
+		for (auto pair : deadlines_)
+		{
+			DEBUG_S("[Person " << pair.first->GetId() << "] Waiting " << (pair.second - time_));
+		}
+	}
+
 	for (auto pair : deadlines_)
 	{
 		if (e.GetTime() > pair.second)
@@ -394,7 +407,7 @@ bool ElevatorLogic::hasDownQueue(Elevator *ele)
 }
 
 // check if elevator is on the way to given floor
-bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
+bool ElevatorLogic::onTheWay(Elevator *ele, Floor *target)
 {
 	return
 	(
@@ -476,7 +489,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 			if (queue_[ele].count(cur))
 			{
 				// also consider time for opening/closing door
-				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
 			}
 			cur = cur->GetAbove();
@@ -488,7 +501,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		{
 			if (queue_[ele].count(cur))
 			{
-				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
 			}
 			cur = cur->GetBelow();
@@ -503,7 +516,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 			if (queue_[ele].count(cur))
 			{
 				// also consider time for opening/closing door
-				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
 			}
 			cur = cur->GetAbove();
@@ -514,7 +527,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		{
 			if (queue_[ele].count(cur))
 			{
-				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
 			}
 			cur = cur->GetBelow();
@@ -528,7 +541,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 			if (queue_[ele].count(cur))
 			{
 				// also consider time for opening/closing door
-				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
 			}
 			cur = cur->GetBelow();
@@ -539,7 +552,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		{
 			if (queue_[ele].count(cur))
 			{
-				result += getTravelTime(ele,prev,cur) + (open_.count(ele) ? 3 : 6);
+				result += getTravelTime(ele,prev,cur) + 6;
 				prev = cur;
 			}
 			cur = cur->GetAbove();
@@ -622,6 +635,20 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 		if (!malfunctions_.count(ele) && !overloaded)
 			// sort them by estimated travel time
 			addToList(elevs,ele,target);
+	}
+
+	// get idling at current floor
+	for (auto const& ele : elevs)
+	{
+		if (!moving_.count(ele) && ele->GetCurrentFloor() == target)
+			return ele;
+	}
+
+	// get on the way
+	for (auto const& ele : elevs)
+	{
+		if (onTheWay(ele,target))
+			return ele;
 	}
 
 	// pick the one which would be there first

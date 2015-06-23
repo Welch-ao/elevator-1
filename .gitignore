@@ -5,6 +5,7 @@
 obj/*
 bin/*
 log/*
+err/*
 
 # Compiled Object files
 *.slo
