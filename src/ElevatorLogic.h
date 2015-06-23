@@ -82,7 +82,7 @@ class ElevatorLogic: public EventHandler
 
 
 		// helper functions
-		Elevator*	pickElevator     	(Environment&, const Event&);
+		Elevator*	pickElevator     	(Interface*, Floor*);
 		int      	getQueueLength   	(Elevator*, Floor*);
 		int      	getTravelTime    	(Elevator*, Floor*, Floor*, bool direct = true);
 		double   	getDistance      	(Floor*, Floor*, double pos = 0.5);

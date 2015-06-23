@@ -3,3 +3,4 @@ Interface { <ID> <number of entities> <list of entity IDs> }
 Elevator { <ID> <speed> <maximum load> <ID of starting floor> <number of interfaces> <list of interface IDs> }
 Person { <ID> <ID of starting floor> <ID of destination floor> <give up delay> <weight> <start time> }
 UpDownButton { <ID> <number of loadables> <list of loadable IDs> }
+Event { <type> <time> <ID of sender> <ID of passed entity> (data string) }

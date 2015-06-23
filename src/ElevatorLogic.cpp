@@ -143,7 +143,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				);
 
 				// try to find the best fitting elevator
-				ele = pickElevator(env,e);
+				ele = pickElevator(interf,target);
 				// if it exists
 				if (ele)
 				{
@@ -213,7 +213,10 @@ void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 	moving_.erase(ele);
 
 	if (!moving_.count(ele) && inPosition(ele))
+	{
 		env.SendEvent("Elevator::Open", 0, this, ele);
+		open_.insert(ele);
+	}
 }
 
 void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
@@ -223,7 +226,6 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 		throw runtime_error(showTestCase() + "An elevator opened its doors when it was not at the center of a floor.");
 	if (moving_.count(ele))
 		throw runtime_error(showTestCase() + "An elevator opened its doors while it was moving.");
-	open_.insert(ele);
 }
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
@@ -304,8 +306,37 @@ void ElevatorLogic::HandleMalfunction(Environment &env, const Event &e)
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	malfunctions_.insert(ele);
 
+	moving_.erase(ele);
+	movingUp_.erase(ele);
+	movingDown_.erase(ele);
+
 	allEvents.push_back(e);
 	DEBUG_S("[NSA]: Tracking malfunction");
+
+	if (queueInt_.find(ele) != queueInt_.end() && queueExt_.find(ele) != queueExt_.end())
+	{
+		// reassign external queue
+		for (auto const &f : queueExt_[ele])
+		{
+			for (auto const &el : queueExt_)
+			{
+				if (el.first->HasFloor(f) && !malfunctions_.count(el.first))
+				{
+					DEBUG_S("Elevator " << el.first->GetId() << " is good, reassigning.");
+					// add to new elevator's queue
+					queueExt_[el.first].insert(f);
+					continueOperation(env,el.first);
+					// remove from malfunctioning elevator's queue
+					queueExt_[ele].erase(f);
+					break;
+				}
+			}
+		}
+		// if in position, clear internal queue (and optionally call new elevators for passengers)
+		if (inPosition(ele))
+			queueInt_[ele].clear();
+	}
+
 }
 
 void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
@@ -732,12 +763,8 @@ void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* targ
 }
 
 // pick the elevator with shortest travel time to target
-Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
+Elevator* ElevatorLogic::pickElevator(Interface *interf, Floor *target)
 {
-	Interface *interf = static_cast<Interface*>(e.GetSender());
-	Person *person = static_cast<Person*>(e.GetEventHandler());
-	Floor *target = person->GetCurrentFloor();
-
 	// get all elevators that stop at this floor
 	list<Elevator*> elevs;
 	for(int i = 0; i < interf->GetLoadableCount(); ++i)
@@ -901,7 +928,7 @@ string ElevatorLogic::showEvents()
 		snd->GetId() << " " <<
 		// reference
 		ref->GetId() << " " <<
-		oss << " }<br>" << endl;
+		"}<br>" << endl;
 	}
 	return oss.str();
 }
