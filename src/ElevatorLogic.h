@@ -82,12 +82,18 @@ class ElevatorLogic: public EventHandler
 
 
 		// helper functions
-		Elevator*	pickElevator  	(Environment &env, const Event &e);
-		int      	getQueueLength	(Elevator*, Floor*);
-		int      	getTravelTime 	(Elevator*, Floor*, Floor*, bool direct = true);
-		double   	getDistance   	(Floor*, Floor*, double pos = 0.5);
-		void     	addToList     	(list<Elevator*>&, Elevator*, Floor*);
-		bool     	onTheWay      	(Elevator*, Floor*);
+		Elevator*	pickElevator     	(Environment&, const Event&);
+		int      	getQueueLength   	(Elevator*, Floor*);
+		int      	getTravelTime    	(Elevator*, Floor*, Floor*, bool direct = true);
+		double   	getDistance      	(Floor*, Floor*, double pos = 0.5);
+		void     	addToList        	(list<Elevator*>&, Elevator*, Floor*);
+		bool     	onTheWay         	(Elevator*, Floor*);
+		void     	sendToFloor      	(Environment&, Elevator*, Floor*);
+		void     	continueOperation	(Environment&, Elevator*);
+		bool     	hasUpQueue       	(Elevator*);
+		bool     	hasDownQueue     	(Elevator*);
+		bool     	inPosition       	(Elevator*);
+
 
 		// elevator states
 		map<Elevator*,set<Floor*>>	queue_;
@@ -96,6 +102,7 @@ class ElevatorLogic: public EventHandler
 		set<Elevator*>            	movingUp_;
 		set<Elevator*>            	movingDown_;
 		set<Elevator*>            	open_;
+		set<Elevator*>            	busy_;
 		set<Elevator*>            	beeping_;
 		set<Elevator*>            	malfunctions_;
 		map<Elevator*,int>        	loads_;

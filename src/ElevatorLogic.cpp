@@ -66,10 +66,11 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			// stop if we're at the middle of any floor in the queue or at the upper/lower limit
 			if ((queue_[ele].count(current)
 				|| ele->IsHighestFloor(current) || ele->IsLowestFloor(current))
-				&&	(ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+				&&	(inPosition(ele))
 				)
 			{
 				env.SendEvent("Elevator::Stop",0,this,ele);
+				queue_[ele].erase(current);
 			}
 			// otherwise continue movement and report back later
 			else
@@ -111,7 +112,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				Elevator *ele = pickElevator(env,e);
 				// if it exists
 				if (ele)
-					sendToFloor(env,target,ele);
+					sendToFloor(env,ele,target);
 				// if none can come, try again next tick
 				else
 				{
@@ -161,12 +162,17 @@ void ElevatorLogic::HandleMoving(Environment &env, const Event &e)
 		throw runtime_error(showTestCase() + "An elevator started moving while its doors were open.");
 	moving_.insert(ele);
 	elevators_.insert(ele);
+
+	env.SendEvent("Interface::Notify",0,ele,ele);
 }
 
 void ElevatorLogic::HandleStopped(Environment &env, const Event &e)
 {
 	Elevator *ele = static_cast<Elevator*>(e.GetSender());
 	moving_.erase(ele);
+
+	if (!moving_.count(ele) && inPosition(ele))
+		env.SendEvent("Elevator::Open", 0, this, ele);
 }
 
 void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
@@ -180,7 +186,8 @@ void ElevatorLogic::HandleOpening(Environment &env, const Event &e)
 }
 
 void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
-{}
+{
+}
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
 {
@@ -208,6 +215,8 @@ void ElevatorLogic::HandleEntered(Environment &env, const Event &e)
 	auto iter = loads_.insert(make_pair(ele, person->GetWeight()));
 	if (!iter.second)
 		iter.first->second += person->GetWeight();
+
+	env.SendEvent("Elevator::Close", 0, this, ele);
 }
 
 void ElevatorLogic::HandleExiting(Environment &env, const Event &e)
@@ -274,10 +283,110 @@ void ElevatorLogic::HandleAll(Environment &env, const Event &e)
 	}
 }
 
-
 /**
  * helper functions
  */
+
+bool ElevatorLogic::inPosition(Elevator *ele)
+{
+	return (ele->GetPosition() >= 0.49 && ele->GetPosition() <= 0.51);
+}
+
+// send elevator into general direction of given floor
+// WARNING: does not check if floor is reachable.
+void ElevatorLogic::sendToFloor(Environment &env, Elevator *ele, Floor *target)
+{
+	DEBUG_S("Sending elevator " << ele->GetId() << " to floor " << target->GetId());
+	// find out current floor
+	Floor *current = ele->GetCurrentFloor();
+
+	if (queue_.find(ele) == queue_.end())
+		throw runtime_error(showTestCase() + "An elevator was trying to add a floor to queue without having a queue.");
+
+	// add target floor to queue in any case
+	if (queue_[ele].insert(target).second)
+		DEBUG_S("[Elevator" << ele->GetId() << "] Added floor " << target->GetId() << " to queue");
+
+	// if moving at the target floor, stop
+	if (current == target && moving_.count(ele) && inPosition(ele))
+	{
+		env.SendEvent("Elevator::Stop",0,this,ele);
+		return;
+	}
+
+	// catch bad behavior
+	if (moving_.count(ele))
+	{
+		DEBUG_S("Already moving, do nothing");
+		return;
+	}
+	if (open_.count(ele))
+	{
+		DEBUG_S("Door open, do nothing");
+		return;
+	}
+	if (busy_.count(ele))
+	{
+		DEBUG_S("Busy, do nothing");
+		return;
+	}
+
+	// send into right direction
+	continueOperation(env,ele);
+}
+
+void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
+{
+	if (queue_.find(ele) == queue_.end())
+		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without a queue.");
+
+	if (queue_[ele].empty())
+		DEBUG_S("[Elevator " << ele->GetId() << "] Queue empty, nothing to do.");
+	else if
+	(
+		//TODO: get up/down queue
+		(movingUp_.count(ele) && hasUpQueue(ele))
+		||	!hasDownQueue(ele)
+	)
+	{
+		env.SendEvent("Elevator::Up",0,this,ele);
+		movingDown_.erase(ele);
+		movingUp_.insert(ele);
+	}
+	else
+	{
+		env.SendEvent("Elevator::Down",0,this,ele);
+		movingUp_.erase(ele);
+		movingDown_.insert(ele);
+	}
+	moving_.insert(ele);
+}
+
+bool ElevatorLogic::hasUpQueue(Elevator *ele)
+{
+	if (queue_.find(ele) != queue_.end())
+	{
+		for (auto const& f : queue_[ele])
+		{
+			if (ele->GetCurrentFloor()->IsAbove(f))
+				return true;
+		}
+	}
+	return false;
+}
+
+bool ElevatorLogic::hasDownQueue(Elevator *ele)
+{
+	if (queue_.find(ele) != queue_.end())
+	{
+		for (auto const& f : queue_[ele])
+		{
+			if (ele->GetCurrentFloor()->IsBelow(f))
+				return true;
+		}
+	}
+	return false;
+}
 
 // check if elevator is on the way to given floor
 bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
@@ -290,8 +399,8 @@ bool ElevatorLogic::onTheWay(Elevator *ele,Floor *target)
 			(
 			(ele->GetPosition() > 0.51 && movingDown_.count(ele)) ||
 			(ele->GetPosition() < 0.49 && movingUp_.count(ele)) ||
-			// this is important so that getQueueLengt() works as expected
-			(ele->GetPosition() > 0.49 && ele->GetPosition() < 0.51)
+			// this is important so that getQueueLength() works as expected
+			(inPosition(ele))
 			)
 		)
 	);
@@ -342,7 +451,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 {
 	// catch possible null pointer
 	if (queue_.find(ele) == queue_.end())
-		throw runtime_error(showTestCase() + "An elevator trying to calculate travel time without having a queue.");
+		throw runtime_error(showTestCase() + "An elevator was trying to calculate travel time without having a queue.");
 
 	// on empty queue or unmoved elevator
 	if (queue_[ele].empty())
@@ -497,9 +606,16 @@ Elevator* ElevatorLogic::pickElevator(Environment &env, const Event &e)
 			DEBUG_S("[Elevator " << ele->GetId() << "] Queue created");
 		}
 
-		// sort them by estimated travel time
+		// exclude overloaded
+		bool overloaded = false;
+		auto iter = loads_.find(ele);
+		if (iter != loads_.end())
+			if (iter->second > ele->GetMaxLoad())
+				overloaded = true;
+
 		// exclude malfunctioning
-		if (!malfunctions_.count(ele))
+		if (!malfunctions_.count(ele) && !overloaded)
+			// sort them by estimated travel time
 			addToList(elevs,ele,target);
 	}
 
