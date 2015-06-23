@@ -92,10 +92,13 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 				throw runtime_error(showTestCase() + "An elevator was moving without having a queue.");
 
 			// stop if we're at the middle of any floor in the queue or at the upper/lower limit
-			if (moving_.count(ele) && (queueInt_[ele].count(current) || queueExt_[ele].count(current) || (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
+			if ((queueInt_[ele].count(current) || queueExt_[ele].count(current) || (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
 				&& (inPosition(ele)))
 			{
-				env.SendEvent("Elevator::Stop",0,this,ele);
+				if (moving_.count(ele))
+					env.SendEvent("Elevator::Stop",0,this,ele);
+				else
+					env.SendEvent("Elevator::Open",0,this,ele);
 				if (queueInt_[ele].erase(current))
 					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from internal queue");
 				if  (queueExt_[ele].erase(current))
@@ -112,7 +115,7 @@ void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 			{
 				// but only if not malfunctioning
 				if (!malfunctions_.count(ele))
-					env.SendEvent("Interface::Notify",1,ele,ele);
+					nextNotification_ = env.SendEvent("Interface::Notify",1,ele,ele);
 			}
 		}
 		// handle person's call
@@ -446,8 +449,11 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 	// catch bad behavior
 	if (moving_.count(ele) && inPosition(ele) && q.count(ele->GetCurrentFloor()))
 	{
-		DEBUG_S("We should have stopped here");
-		// env.SendEvent("Interface::Notify",0,ele,ele);
+		if (env.CancelEvent(nextNotification_))
+		{
+			env.SendEvent("Interface::Notify",0,ele,ele);
+			return;
+		}
 	}
 	if (moving_.count(ele))
 	{

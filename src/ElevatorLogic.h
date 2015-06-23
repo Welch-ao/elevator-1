@@ -111,7 +111,8 @@ class ElevatorLogic: public EventHandler
 		map<Elevator*,int>        	loads_;
 		map<Person*,int>          	deadlines_;
 
-		int time_;	// last time we checked
+		int time_;            	// last time we checked
+		int nextNotification_;	// next notifciation event id
 
 		// environment information
 		set<Floor*>               	allFloors;
