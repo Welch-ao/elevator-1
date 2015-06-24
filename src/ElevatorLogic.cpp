@@ -1008,6 +1008,9 @@ string ElevatorLogic::showEvents()
 
 void ElevatorLogic::collectInfo(Environment &env, Person *person)
 {
+	if (!person)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in collectInfo().");
+
 	// track person with start floor and time
 	if (allPersons.insert(make_pair(person,make_pair(person->GetCurrentFloor()->GetId(),env.GetClock()))).second)
 		DEBUG_S("[NSA] Tracking person " << person->GetId());

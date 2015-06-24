@@ -1,0 +1,33 @@
+Floor { 10 0 11 4 1 40 }
+Floor { 11 10 12 4 1 41 }
+Floor { 12 11 13 4 1 40 }
+
+Interface { 40 1 20 }
+UpDownButton { 41 1 20 }
+
+Elevator { 20 1 10 11 3 30 31 32 }
+
+Interface { 30 1 10 }
+Interface { 31 1 11 }
+Interface { 32 1 12 }
+
+Person { 50 11 12 3 5 0 }
+Person { 51 11 10 3 5 0 }
+Person { 52 12 11 12 5 1 }
+
+Floor { 13 12 14 4 1 42 }
+Floor { 14 13 15 4 1 43 }
+Floor { 15 14 0 4 1 42 }
+
+Interface { 42 1 21 }
+UpDownButton { 43 1 21 }
+
+Elevator { 21 1 10 14 3 33 34 35 }
+
+Interface { 33 1 13 }
+Interface { 34 1 14 }
+Interface { 35 1 15 }
+
+Person { 53 14 15 3 5 0 }
+Person { 54 14 13 3 5 0 }
+Person { 55 13 14 12 5 1 }
