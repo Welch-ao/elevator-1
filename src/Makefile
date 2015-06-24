@@ -3,7 +3,7 @@
 CPP_FILES := $(wildcard *.cpp)
 OBJ_FILES := $(addprefix ../obj/,$(CPP_FILES:.cpp=.o))
 
-CC_FLAGS := -D__GXXEXPERIMENTAL_CXX0X__ -Wall -std=c++0x
+CC_FLAGS := -D__GXXEXPERIMENTAL_CXX0X__ -Wall -std=c++0x -g -O0
 
 cat: $(OBJ_FILES)
 	g++ -o ../bin/$@ $^

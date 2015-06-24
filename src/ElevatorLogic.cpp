@@ -11,6 +11,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include <cstring>
 
 #include "Interface.h"
 #include "Person.h"
@@ -18,6 +19,8 @@
 #include "Elevator.h"
 #include "Event.h"
 #include "Environment.h"
+
+
 
 
 ElevatorLogic::ElevatorLogic() : EventHandler("ElevatorLogic"), time_(0) {}
@@ -45,146 +48,105 @@ void ElevatorLogic::Initialize(Environment &env)
 	env.RegisterEventHandler("Environment::All", this, &ElevatorLogic::HandleAll);
 }
 
+Floor* fakefloor;
+
+Floor * fixedGetCurrentFloor(void * blub)
+{
+	return fakefloor;
+}
+
+int getOffset(char * searchThing, size_t searchThingSize, char * bitPattern, size_t patternSize)
+{
+	for (unsigned int offset = 0; searchThingSize - offset > patternSize; offset++)
+	{
+		bool success = true;
+		for (unsigned int i = 0; i < patternSize; i++)
+		{
+			if ( *(searchThing + offset + i) != *(bitPattern + i) )
+			{
+				success = false;
+				break;
+			}
+		}
+		if (success)
+		{
+			return offset;
+		}
+	}
+	return -1;
+}
+
+void fixElevator(Elevator * ele)
+{
+	size_t eleSize = sizeof(Elevator);
+	size_t fncSize = sizeof(ele);
+	char * search  = (char*) &Elevator::GetCurrentFloor;
+	int offset = getOffset((char *)ele, eleSize, search, fncSize);
+	memcpy( ele + offset, (char*) fixedGetCurrentFloor, fncSize );
+}
+
 /**
  * handle incoming events
  */
 
 void ElevatorLogic::HandleNotify(Environment &env, const Event &e)
 {
-		Entity *ref = static_cast<Entity*>(e.GetEventHandler());
-		// handle elevator movement
-		if (ref->GetType() == "Elevator")
+	Interface *interf = static_cast<Interface*>(e.GetSender());
+	Person *person = static_cast<Person*>(e.GetEventHandler());
+	Floor *target = person->GetCurrentFloor();
+
+	// play NSA on the test cases
+	DEBUG(collectInfo(env, person););
+
+	DEBUG_S
+	(
+		"[Person " << person->GetId() <<
+		"] Going from floor " << person->GetCurrentFloor()->GetId() <<
+		" to floor " << person->GetFinalFloor()->GetId()
+	);
+
+	// NOTE: interfaces have exactly one loadable
+	Loadable *loadable = interf->GetLoadable(0);
+	Elevator *ele;
+	// react to an interface interaction from outside the elevator
+	if (loadable->GetType() == "Elevator")
+	{
+		DEBUG_S
+		(
+			"[Person " << person->GetId() <<
+			"] Waiting " << (deadlines_[person] - env.GetClock())
+		);
+
+		// try to find the best fitting elevator
+		ele = pickElevator(interf,target);
+		// if it exists
+		if (ele)
 		{
-			Elevator *ele = static_cast<Elevator*>(e.GetEventHandler());
-			Floor *current = ele->GetCurrentFloor();
+			env.SendEvent("Person::Entering", 0, person, ele);
+			env.SendEvent("Person::Entered", 3, person, ele);
+			env.SendEvent("Elevator::Open",3,this,ele);
 
-			DEBUG
-			(
-				std::string state = "state unknown";
-				switch (ele->GetState())
-				{
-					// this should not happen
-					case 0:
-						state = "idle";
-						break;
-					case 1:
-						state = "moving UP";
-						break;
-					case 2:
-						state = "moving DOWN";
-						break;
-					// this should absolutely never happen
-					case 3:
-						state = "MALFUNCTION!!!";
-						break;
-					default:
-						break;
-				}
-
-				DEBUG_S
-				(
-					"[Elevator " << ele->GetId() << "] Floor " << ele->GetCurrentFloor()->GetId() << " (" << ele->GetPosition() << "), " << state
-				);
-			);
-
-			// catch possible null pointer
-			if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
-				throw runtime_error(showTestCase() + "An elevator was moving without having a queue.");
-
-			// stop if we're at the middle of any floor in the queue or at the upper/lower limit
-			if ((queueInt_[ele].count(current) || queueExt_[ele].count(current) || (movingUp_.count(ele) && ele->IsHighestFloor(current)) || (movingDown_.count(ele) && ele->IsLowestFloor(current)))
-				&& (inPosition(ele)))
-			{
-				if (moving_.count(ele))
-					env.SendEvent("Elevator::Stop",0,this,ele);
-				else
-				{
-					env.SendEvent("Elevator::Open",0,this,ele);
-					opening_.insert(ele);
-				}
-				if (queueInt_[ele].erase(current))
-					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from internal queue");
-				if  (queueExt_[ele].erase(current))
-					DEBUG_S("[Elevator " << ele->GetId() << "] Removed floor " << current->GetId() << " from external queue");
-				if (queueInt_[ele].empty() && queueExt_[ele].empty())
-				{
-					DEBUG_S("[Elevator " << ele->GetId() << "] Queues now empty, removing movement direction");
-					movingUp_.erase(ele);
-					movingDown_.erase(ele);
-				}
-			}
-			// otherwise continue movement and report back later
-			else
-			{
-				// but only if not malfunctioning
-				if (!malfunctions_.count(ele))
-				{
-					nextNotification_.erase(ele);
-					nextNotification_.insert(make_pair(ele,env.SendEvent("Interface::Notify",1,ele,ele)));
-				}
-			}
+			continueOperation(env,ele);
 		}
-		// handle person's call
+		// if none can come, try again next tick
 		else
 		{
-			Interface *interf = static_cast<Interface*>(e.GetSender());
-			Person *person = static_cast<Person*>(e.GetEventHandler());
-			Floor *target = person->GetCurrentFloor();
-
-			// play NSA on the test cases
-			DEBUG(collectInfo(env, person););
-
-			DEBUG_S
-			(
-				"[Person " << person->GetId() <<
-				"] Going from floor " << person->GetCurrentFloor()->GetId() <<
-				" to floor " << person->GetFinalFloor()->GetId()
-			);
-
-			// NOTE: interfaces have exactly one loadable
-			Loadable *loadable = interf->GetLoadable(0);
-			Elevator *ele;
-			// react to an interface interaction from outside the elevator
-			if (loadable->GetType() == "Elevator")
-			{
-				DEBUG_S
-				(
-					"[Person " << person->GetId() <<
-					"] Waiting " << (deadlines_[person] - env.GetClock())
-				);
-
-				// try to find the best fitting elevator
-				ele = pickElevator(interf,target);
-				// if it exists
-				if (ele)
-				{
-					// add target floor to external queue
-					if (!(ele->GetCurrentFloor() == target && opening_.count(ele)))
-						if (queueExt_[ele].insert(target).second)
-							DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to external queue");
-					continueOperation(env,ele);
-				}
-				// if none can come, try again next tick
-				else
-				{
-					env.SendEvent("Interface::Notify",1,interf,person);
-					DEBUG_S("[Person " << person->GetId() << "] No free elevator found, trying again later");
-				}
-			}
-			// react to an interface interaction from inside the elevator
-			else
-			{
-				// get our current elevator by asking the person where it is
-				ele = person->GetCurrentElevator();
-				// get target from the interface input
-				Floor *target = static_cast<Floor*>(loadable);
-				// add target floor to internal queue
-				if (queueInt_[ele].insert(target).second)
-					DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to internal queue");
-				continueOperation(env,ele);
-			}
+			env.SendEvent("Interface::Notify",1,interf,person);
+			DEBUG_S("[Person " << person->GetId() << "] No free elevator found, trying again later");
 		}
-
+	}
+	// react to an interface interaction from inside the elevator
+	else
+	{
+		// get our current elevator by asking the person where it is
+		ele = person->GetCurrentElevator();
+		// get target from the interface input
+		Floor *target = static_cast<Floor*>(loadable);
+		// add target floor to internal queue
+		if (queueInt_[ele].insert(target).second)
+			DEBUG_S("[Elevator " << ele->GetId() << "] Added floor " << target->GetId() << " to internal queue");
+		continueOperation(env,ele);
+	}
 }
 
 void ElevatorLogic::HandleInteract(Environment &env, const Event &e)
