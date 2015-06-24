@@ -493,7 +493,7 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 	if (!ele)
 		throw runtime_error(showTestCase() + "Trying to dereference nullptr in continueOperation().");
 
-	if (queueInt_.find(ele) != queueInt_.end() && queueExt_.find(ele) != queueExt_.end())
+	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
 		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without a queue.");
 
 	// create merged queue
