@@ -528,7 +528,7 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 		DEBUG_S("[Elevator " << ele->GetId() << "] Already moving, do nothing");
 		return;
 	}
-	if (open_.count(ele))
+	if (open_.count(ele) || opening_.count(ele))
 	{
 		DEBUG_S("[Elevator " << ele->GetId() << "] Door open, do nothing");
 		return;
