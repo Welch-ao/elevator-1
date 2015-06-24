@@ -259,7 +259,7 @@ void ElevatorLogic::HandleOpened(Environment &env, const Event &e)
 		closing_.insert(ele);
 	}
 	if (overloaded)
-		env.SendEvent("Elevator::Beep",3,this,ele);
+		env.SendEvent("Elevator::Beep",0,this,ele);
 }
 
 void ElevatorLogic::HandleClosing(Environment &env, const Event &e)
@@ -480,10 +480,6 @@ bool ElevatorLogic::canReachFloor(Elevator *ele, Floor* target)
 	bool p1	= height*0.5 - speed*m    	>= height*0.49;
 	bool p2	= height*0.5 + speed*(1-m)	<= height*0.51;
 
-	DEBUG_V(ele->GetCurrentFloor()->GetId());
-	DEBUG_V(target->GetId());
-	DEBUG_V(distance);
-	DEBUG_V(ele->GetPosition());
 	return (p1 || p2);
 }
 
@@ -741,7 +737,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 	q.insert(queueExt_[ele].begin(),queueExt_[ele].end());
 
 	// on empty queue or unmoved elevator
-	if (q.empty())
+	if (q.empty() || (!movingUp_.count(ele) && !movingDown_.count(ele)))
 		// get direct travel time to target
 		return getTravelTime(ele,ele->GetCurrentFloor(),target,true);
 
