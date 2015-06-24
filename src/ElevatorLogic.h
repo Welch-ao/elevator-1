@@ -95,6 +95,7 @@ class ElevatorLogic: public EventHandler
 		bool     	hasUpQueue       	(Elevator*);
 		bool     	hasDownQueue     	(Elevator*);
 		bool     	inPosition       	(Elevator*);
+		bool		canReachFloor		(Elevator*, Floor*);
 
 
 		// elevator states

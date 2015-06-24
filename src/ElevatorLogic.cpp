@@ -453,6 +453,33 @@ void ElevatorLogic::HandleAll(Environment &env, const Event &e)
  * helper functions
  */
 
+// check if elevator can really stop at a given floor
+bool ElevatorLogic::canReachFloor(Elevator *ele, Floor* target)
+{
+	DEBUG_S("Checking reachability of floor " << target->GetId() << " for elevator " << ele->GetId());
+	// distance from elevator's current position to middle of target floor
+	double distance	= getDistance(ele->GetCurrentFloor(),target,ele->GetPosition());
+	int speed      	= ele->GetSpeed();
+	// exact travel time to target
+	double travelTime	= distance/speed;
+	int height       	= target->GetHeight();
+	// mantissa of travel time
+	double m	= travelTime - floor(travelTime);
+
+	// this tells us if we still hit the middle if we round travel time up or down
+	bool p1	= height*0.5 - speed*m   	>= height*0.49;
+	bool p2	= height*0.5 + speed*(1-m)	<= height*0.51;
+
+	DEBUG_V(distance);
+	DEBUG_V(speed);
+	DEBUG_V(travelTime);
+	DEBUG_V(height);
+	DEBUG_V(m);
+	DEBUG_V(p1);
+	DEBUG_V(p2);
+	return (p1 || p2);
+}
+
 bool ElevatorLogic::inPosition(Elevator *ele)
 {
 	if (!ele)
@@ -862,7 +889,7 @@ Elevator* ElevatorLogic::pickElevator(Interface *interf, Floor *target)
 				overloaded = true;
 
 		// exclude malfunctioning
-		if (!malfunctions_.count(ele) && !overloaded)
+		if (!malfunctions_.count(ele) && !overloaded && canReachFloor(ele,target))
 			// sort them by estimated travel time
 			addToList(elevs,ele,target);
 	}
