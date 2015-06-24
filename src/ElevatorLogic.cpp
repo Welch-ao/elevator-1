@@ -457,6 +457,9 @@ void ElevatorLogic::HandleAll(Environment &env, const Event &e)
 // check if elevator can really stop at a given floor
 bool ElevatorLogic::canReachFloor(Elevator *ele, Floor* target)
 {
+	if (!ele || !target)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in canReachFloor().");
+
 	// distance from elevator's current position to middle of target floor
 	double distance	= getDistance(ele->GetCurrentFloor(),target,ele->GetPosition());
 	int speed      	= ele->GetSpeed();
@@ -481,6 +484,7 @@ bool ElevatorLogic::inPosition(Elevator *ele)
 {
 	if (!ele)
 		throw runtime_error(showTestCase() + "Trying to dereference nullptr in inPosition().");
+
 	return (ele->GetPosition() >= 0.49 && ele->GetPosition() <= 0.51);
 }
 
@@ -489,7 +493,7 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 	if (!ele)
 		throw runtime_error(showTestCase() + "Trying to dereference nullptr in continueOperation().");
 
-	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
+	if (queueInt_.find(ele) != queueInt_.end() && queueExt_.find(ele) != queueExt_.end())
 		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without a queue.");
 
 	// create merged queue
@@ -558,7 +562,6 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 
 		for (auto const &f : queueExt_[ele])
 		{
-
 			if (ele->GetCurrentFloor() != f)
 			{
 				if (ele->GetCurrentFloor()->IsAbove(f))
@@ -669,13 +672,16 @@ double ElevatorLogic::getDistance(Floor *a, Floor *b, double pos)
 
 	// if relative to one floor, return distance from the middle
 	if (a == b)
-		return abs(a->GetHeight()/2.0 - b->GetHeight()*pos);
+		return abs(a->GetHeight()/2.0 - a->GetHeight()*pos);
 	// walk through all floors until we reach destination
 	else if (a->IsBelow(b))
 	{
 		double distance = a->GetHeight()*pos;
 		while (a->GetBelow() != b)
 		{
+			if (!a->GetBelow())
+				throw runtime_error(showTestCase() + "Trying to dereference nullptr in getDistance() loop.");
+
 			a = a->GetBelow();
 			distance += a->GetHeight();
 		}
@@ -687,6 +693,9 @@ double ElevatorLogic::getDistance(Floor *a, Floor *b, double pos)
 		double distance = a->GetHeight() - a->GetHeight()*pos;
 		while (a->GetAbove() != b)
 		{
+			if (!a->GetAbove())
+				throw runtime_error(showTestCase() + "Trying to dereference nullptr in getDistance() loop.");
+
 			a = a->GetAbove();
 			distance += a->GetHeight();
 		}
@@ -735,7 +744,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 	// straightforward path
 	if (movingUp_.count(ele) && onTheWay(ele,target))
 	{
-		while (cur != target)
+		while (cur->GetAbove() && cur != target)
 		{
 			if (q.count(cur))
 			{
@@ -748,7 +757,7 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 	}
 	else if (movingDown_.count(ele) && onTheWay(ele,target))
 	{
-		while (cur != target)
+		while (cur->GetAbove() && cur != target)
 		{
 			if (q.count(cur))
 			{
@@ -774,7 +783,8 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		}
 		// go down the whole down queue until target
 		cur = ele->GetCurrentFloor();
-		while (cur != target)
+		prev = cur;
+		while (cur->GetAbove() && cur != target)
 		{
 			if (q.count(cur))
 			{
@@ -799,7 +809,8 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 		}
 		// go down the whole down queue until target
 		cur = ele->GetCurrentFloor();
-		while (cur != target)
+		prev = cur;
+		while (cur->GetAbove() && cur != target)
 		{
 			if (q.count(cur))
 			{
@@ -873,9 +884,10 @@ Elevator* ElevatorLogic::pickElevator(Interface *interf, Floor *target)
 		{
 			set<Floor*> q;
 			// WARNING: we rely on the hope that this COPIES the created pair
-			queueInt_.insert(make_pair(ele,q));
-			queueExt_.insert(make_pair(ele,q));
-			DEBUG_S("[Elevator " << ele->GetId() << "] Queues created");
+			if (queueInt_.insert(make_pair(ele,q)).second)
+				DEBUG_S("[Elevator " << ele->GetId() << "] Internal queue created");
+			if (queueExt_.insert(make_pair(ele,q)).second)
+				DEBUG_S("[Elevator " << ele->GetId() << "] External queue created");
 		}
 
 		// exclude overloaded
