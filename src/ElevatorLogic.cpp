@@ -455,11 +455,16 @@ void ElevatorLogic::HandleAll(Environment &env, const Event &e)
 
 bool ElevatorLogic::inPosition(Elevator *ele)
 {
+	if (!ele)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in inPosition().");
 	return (ele->GetPosition() >= 0.49 && ele->GetPosition() <= 0.51);
 }
 
 void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 {
+	if (!ele)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in continueOperation().");
+
 	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
 		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without a queue.");
 
@@ -573,6 +578,9 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 
 bool ElevatorLogic::hasUpQueue(Elevator *ele)
 {
+	if (!ele)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in hasUpQueue().");
+
 	if (queueInt_.find(ele) != queueInt_.end() && queueExt_.find(ele) != queueExt_.end())
 	{
 		set<Floor*> q;
@@ -590,6 +598,9 @@ bool ElevatorLogic::hasUpQueue(Elevator *ele)
 
 bool ElevatorLogic::hasDownQueue(Elevator *ele)
 {
+	if (!ele)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in hasDownQueue().");
+
 	if (queueInt_.find(ele) != queueInt_.end() && queueExt_.find(ele) != queueExt_.end())
 	{
 		set<Floor*> q;
@@ -608,6 +619,9 @@ bool ElevatorLogic::hasDownQueue(Elevator *ele)
 // check if elevator is on the way to given floor
 bool ElevatorLogic::onTheWay(Elevator *ele, Floor *target)
 {
+	if (!ele || !target)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in onTheWay().");
+
 	return
 	(
 		(movingUp_.count(ele) && ele->GetCurrentFloor()->IsAbove(target)) ||
@@ -626,6 +640,9 @@ bool ElevatorLogic::onTheWay(Elevator *ele, Floor *target)
 // get distance from one floor (including position) to another
 double ElevatorLogic::getDistance(Floor *a, Floor *b, double pos)
 {
+	if (!a || !b)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in getDistance().");
+
 	// if relative to one floor, return distance from the middle
 	if (a == b)
 		return abs(a->GetHeight()/2 - a->GetHeight()*pos);
@@ -657,6 +674,9 @@ double ElevatorLogic::getDistance(Floor *a, Floor *b, double pos)
 // get travel time of an elevator from one floor to the other
 int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b, bool direct)
 {
+	if (!ele || !a || !b)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in getTravelTime().");
+
 	if (direct)
 		return ceil(getDistance(a,b,ele->GetPosition())/ele->GetSpeed());
 	else
@@ -666,6 +686,9 @@ int ElevatorLogic::getTravelTime(Elevator *ele, Floor *a, Floor *b, bool direct)
 // get travel time to a floor considering an existing queue
 int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 {
+	if (!ele || !target)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in getQueueLength().");
+
 	// catch possible null pointer
 	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
 		throw runtime_error(showTestCase() + "An elevator was trying to calculate travel time without having a queue.");
@@ -780,6 +803,9 @@ int ElevatorLogic::getQueueLength(Elevator *ele, Floor* target)
 // add elevator to a list sorted by time to travel to a target floor
 void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* target)
 {
+	if (!ele || !target)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in addToList().");
+
 	DEBUG_S("Considering elevator " << ele->GetId() << " at floor " << ele->GetCurrentFloor()->GetId() <<
 	". Distance: " << getDistance(ele->GetCurrentFloor(),target,ele->GetPosition()) << " ETA: " << getQueueLength(ele,target));
 
@@ -809,6 +835,9 @@ void ElevatorLogic::addToList(list<Elevator*> &elevs, Elevator* ele, Floor* targ
 // pick the elevator with shortest travel time to target
 Elevator* ElevatorLogic::pickElevator(Interface *interf, Floor *target)
 {
+	if (!interf || !target)
+		throw runtime_error(showTestCase() + "Trying to dereference nullptr in pickElevator().");
+
 	// get all elevators that stop at this floor
 	list<Elevator*> elevs;
 	for(int i = 0; i < interf->GetLoadableCount(); ++i)
