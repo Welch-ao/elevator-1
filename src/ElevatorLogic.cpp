@@ -416,6 +416,13 @@ void ElevatorLogic::HandleFixed(Environment &env, const Event &e)
 		env.SendEvent("Elevator::Close",0,this,ele);
 		closing_.insert(ele);
 	}
+
+	set<Floor*> q;
+	if (queueInt_.insert(make_pair(ele,q)).second)
+		DEBUG_S("[Elevator " << ele->GetId() << "] Had no internal queue! Internal queue created");
+	if (queueExt_.insert(make_pair(ele,q)).second)
+		DEBUG_S("[Elevator " << ele->GetId() << "] Had no external queue! External queue created");
+
 	continueOperation(env,ele);
 }
 
@@ -493,8 +500,10 @@ void ElevatorLogic::continueOperation(Environment &env, Elevator *ele)
 	if (!ele)
 		throw runtime_error(showTestCase() + "Trying to dereference nullptr in continueOperation().");
 
-	if (queueInt_.find(ele) == queueInt_.end() || queueExt_.find(ele) == queueExt_.end())
-		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without a queue.");
+	if (queueInt_.find(ele) == queueInt_.end())
+		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without an internal queue.");
+	if (queueExt_.find(ele) == queueExt_.end())
+		throw runtime_error(showTestCase() + "An elevator was trying to continue operation without an external queue.");
 
 	// create merged queue
 	set<Floor*> q;
@@ -930,160 +939,165 @@ Elevator* ElevatorLogic::pickElevator(Interface *interf, Floor *target)
 
 string ElevatorLogic::showFloors()
 {
-	ostringstream oss;
-	for (auto const &f : allFloors)
-	{
-		oss << "Floor { " <<
-		// id
-		f->GetId() << " " <<
-		// floor below
-		(f->GetBelow() == nullptr ? 0 : f->GetBelow()->GetId()) << " " <<
-		// floor above
-		(f->GetAbove() == nullptr ? 0 : f->GetAbove()->GetId()) << " " <<
-		// number of interfaces
-		f->GetHeight() << " " << f->GetInterfaceCount();
-		// list of interfaces
-		for (int i = 0; i < f->GetInterfaceCount(); i++)
-		{
-			oss << " " << f->GetInterface(i)->GetId();
-		}
-		oss << " }<br>" << endl;
-	}
-	return oss.str();
+	// ostringstream oss;
+	// for (auto const &f : allFloors)
+	// {
+	//	oss << "Floor { " <<
+	//	// id
+	//	f->GetId() << " " <<
+	//	// floor below
+	//	(f->GetBelow() == nullptr ? 0 : f->GetBelow()->GetId()) << " " <<
+	//	// floor above
+	//	(f->GetAbove() == nullptr ? 0 : f->GetAbove()->GetId()) << " " <<
+	//	// number of interfaces
+	//	f->GetHeight() << " " << f->GetInterfaceCount();
+	//	// list of interfaces
+	//	for (int i = 0; i < f->GetInterfaceCount(); i++)
+	//	{
+	//		oss << " " << f->GetInterface(i)->GetId();
+	//	}
+	//	oss << " }<br>" << endl;
+	// }
+	// return oss.str();
+	return "";
 }
 
 string ElevatorLogic::showPersons()
 {
-	ostringstream oss;
-	for (auto const &p : allPersons)
-	{
-		oss << "Person { " <<
-		// id
-		p.first->GetId() << " " <<
-		// start floor
-		p.second.first << " " <<
-		// target floor
-		p.first->GetFinalFloor()->GetId() << " " <<
-		// giveup time
-		p.first->GetGiveUpTime() << " " <<
-		// weight
-		p.first->GetWeight() << " " <<
-		// start time
-		p.second.second <<
-		" }<br>" << endl;
-	}
-	return oss.str();
+	// ostringstream oss;
+	// for (auto const &p : allPersons)
+	// {
+	//	oss << "Person { " <<
+	//	// id
+	//	p.first->GetId() << " " <<
+	//	// start floor
+	//	p.second.first << " " <<
+	//	// target floor
+	//	p.first->GetFinalFloor()->GetId() << " " <<
+	//	// giveup time
+	//	p.first->GetGiveUpTime() << " " <<
+	//	// weight
+	//	p.first->GetWeight() << " " <<
+	//	// start time
+	//	p.second.second <<
+	//	" }<br>" << endl;
+	// }
+	// return oss.str();
+	return "";
 }
 
 string ElevatorLogic::showElevators()
 {
-	ostringstream oss;
-	for (auto const &e : allElevators)
-	{
-		oss << "Elevator { " <<
-		// id
-		e.first->GetId() << " " <<
-		// speed
-		e.first->GetSpeed() << " " <<
-		// max load
-		e.first->GetMaxLoad() << " " <<
-		// starting floor
-		e.second << " " <<
-		// number of interfaces
-		e.first->GetInterfaceCount();
-		// list of interfaces
-		for (int i = 0; i < e.first->GetInterfaceCount(); i++)
-		{
-			oss << " " << e.first->GetInterface(i)->GetId();
-		}
-		oss << " }<br>" << endl;
-	}
-	return oss.str();
+	// ostringstream oss;
+	// for (auto const &e : allElevators)
+	// {
+	//	oss << "Elevator { " <<
+	//	// id
+	//	e.first->GetId() << " " <<
+	//	// speed
+	//	e.first->GetSpeed() << " " <<
+	//	// max load
+	//	e.first->GetMaxLoad() << " " <<
+	//	// starting floor
+	//	e.second << " " <<
+	//	// number of interfaces
+	//	e.first->GetInterfaceCount();
+	//	// list of interfaces
+	//	for (int i = 0; i < e.first->GetInterfaceCount(); i++)
+	//	{
+	//		oss << " " << e.first->GetInterface(i)->GetId();
+	//	}
+	//	oss << " }<br>" << endl;
+	// }
+	// return oss.str();
+	return "";
 }
 
 string ElevatorLogic::showInterfaces()
 {
-	ostringstream oss;
-	for (auto const &i : allInterfaces)
-	{
-		oss << "Interface { " <<
-		// id
-		i->GetId() << " " <<
-		// number of loadables
-		i->GetLoadableCount();
-		// list of interfaces
-		for (int j = 0; j < i->GetLoadableCount(); j++)
-		{
-			oss << " " << i->GetLoadable(j)->GetId();
-		}
-		oss << " }<br>" << endl;
-	}
-	return oss.str();
+	// ostringstream oss;
+	// for (auto const &i : allInterfaces)
+	// {
+	//	oss << "Interface { " <<
+	//	// id
+	//	i->GetId() << " " <<
+	//	// number of loadables
+	//	i->GetLoadableCount();
+	//	// list of interfaces
+	//	for (int j = 0; j < i->GetLoadableCount(); j++)
+	//	{
+	//		oss << " " << i->GetLoadable(j)->GetId();
+	//	}
+	//	oss << " }<br>" << endl;
+	// }
+	// return oss.str();
+	return "";
 }
 
 string ElevatorLogic::showEvents()
 {
-	ostringstream oss;
-	for (auto const &e : allEvents)
-	{
-		Entity *snd = static_cast<Entity*>(e.GetSender());
-		Entity *ref = static_cast<Entity*>(e.GetEventHandler());
-		oss << "Event { " <<
-		// event type
-		e.GetEvent() << " " <<
-		// time
-		e.GetTime() << " " <<
-		// sender
-		snd->GetId() << " " <<
-		// reference
-		ref->GetId() << " " <<
-		"}<br>" << endl;
-	}
-	return oss.str();
+	// ostringstream oss;
+	// for (auto const &e : allEvents)
+	// {
+	//	Entity *snd = static_cast<Entity*>(e.GetSender());
+	//	Entity *ref = static_cast<Entity*>(e.GetEventHandler());
+	//	oss << "Event { " <<
+	//	// event type
+	//	e.GetEvent() << " " <<
+	//	// time
+	//	e.GetTime() << " " <<
+	//	// sender
+	//	snd->GetId() << " " <<
+	//	// reference
+	//	ref->GetId() << " " <<
+	//	"}<br>" << endl;
+	// }
+	// return oss.str();
+	return "";
 }
 
 void ElevatorLogic::collectInfo(Environment &env, Person *person)
 {
-	if (!person)
-		throw runtime_error(showTestCase() + "Trying to dereference nullptr in collectInfo().");
+	// if (!person)
+	//	throw runtime_error(showTestCase() + "Trying to dereference nullptr in collectInfo().");
 
-	// track person with start floor and time
-	if (allPersons.insert(make_pair(person,make_pair(person->GetCurrentFloor()->GetId(),env.GetClock()))).second)
-		DEBUG_S("[NSA] Tracking person " << person->GetId());
+	// // track person with start floor and time
+	// if (allPersons.insert(make_pair(person,make_pair(person->GetCurrentFloor()->GetId(),env.GetClock()))).second)
+	//	DEBUG_S("[NSA] Tracking person " << person->GetId());
 
-	// start from this person's floor
-	Floor* f = person->GetCurrentFloor();
-	// find lowest floor
-	while (f->GetBelow() != nullptr)
-	{
-		f = f->GetBelow();
-	}
-	// insert all floors up to the top
-	while (f != nullptr)
-	{
-		if (allFloors.insert(f).second)
-			DEBUG_S("[NSA] Tracking floor " << f->GetId());
-		// insert all interfaces
-		for(int i = 0; i < f->GetInterfaceCount(); i++)
-		{
-			if (allInterfaces.insert(f->GetInterface(i)).second)
-				DEBUG_S("[NSA] Tracking interface " << f->GetInterface(i)->GetId());
-			// insert all elevators
-			for(int k = 0; k < f->GetInterface(i)->GetLoadableCount(); k++)
-			{
-				Elevator *ele = static_cast<Elevator*>(f->GetInterface(i)->GetLoadable(k));
-				if (allElevators.insert(make_pair(ele,ele->GetCurrentFloor()->GetId())).second)
-					DEBUG_S("[NSA] Tracking elevator " << ele->GetId());
-				// insert all interfaces of the elevator
-				for(int j = 0; j < ele->GetInterfaceCount(); j++)
-				{
-					if (allInterfaces.insert(ele->GetInterface(j)).second)
-						DEBUG_S("[NSA] Tracking interface " << ele->GetInterface(j)->GetId());
-				}
-			}
-		}
-		f = f->GetAbove();
-	}
+	// // start from this person's floor
+	// Floor* f = person->GetCurrentFloor();
+	// // find lowest floor
+	// while (f->GetBelow() != nullptr)
+	// {
+	//	f = f->GetBelow();
+	// }
+	// // insert all floors up to the top
+	// while (f != nullptr)
+	// {
+	//	if (allFloors.insert(f).second)
+	//		DEBUG_S("[NSA] Tracking floor " << f->GetId());
+	//	// insert all interfaces
+	//	for(int i = 0; i < f->GetInterfaceCount(); i++)
+	//	{
+	//		if (allInterfaces.insert(f->GetInterface(i)).second)
+	//			DEBUG_S("[NSA] Tracking interface " << f->GetInterface(i)->GetId());
+	//		// insert all elevators
+	//		for(int k = 0; k < f->GetInterface(i)->GetLoadableCount(); k++)
+	//		{
+	//			Elevator *ele = static_cast<Elevator*>(f->GetInterface(i)->GetLoadable(k));
+	//			if (allElevators.insert(make_pair(ele,ele->GetCurrentFloor()->GetId())).second)
+	//				DEBUG_S("[NSA] Tracking elevator " << ele->GetId());
+	//			// insert all interfaces of the elevator
+	//			for(int j = 0; j < ele->GetInterfaceCount(); j++)
+	//			{
+	//				if (allInterfaces.insert(ele->GetInterface(j)).second)
+	//					DEBUG_S("[NSA] Tracking interface " << ele->GetInterface(j)->GetId());
+	//			}
+	//		}
+	//	}
+	//	f = f->GetAbove();
+	// }
 }
 
 void ElevatorLogic::logEvent(Environment &env, const Event &e)
