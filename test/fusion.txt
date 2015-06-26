@@ -55,7 +55,7 @@ Interface { 36 1 16 }
 // --- Third test: if elevator is overweight and a person comes late, weird stuff happens
 
 // 2 floors
-Floor { 18 17 0 4 1 44 }
+Floor { 18 17 100 4 1 44 }
 Floor { 17 16 18 4 1 44 }
 
 // 1 elevator
@@ -72,3 +72,52 @@ Interface { 44 1 25 }
 // intern interfaces
 Interface { 37 1 18 }
 Interface { 38 1 17 }
+
+// --- Forth test (diffrent nameConvention):
+// -- First half
+
+// 3 floors
+Floor { 102 101 103 4 1 400 }
+Floor { 101 100 102 4 1 401 }
+Floor { 100 18 101 4 1 400 }
+
+// extern interfaces
+Interface { 400 1 26 }
+UpDownButton { 401 1 26 }
+
+// 1 elevator
+Elevator { 26 1 10 101 3 300 301 302 }
+
+// intern interfaces
+Interface { 300 1 100 }
+Interface { 301 1 101 }
+Interface { 302 1 102 }
+
+// 3 persons
+Person { 57 101 102 3 5 0 }
+Person { 58 101 100 3 5 0 }
+Person { 59 102 101 12 5 1 }
+
+// -- Second half
+
+// 3 floors
+Floor { 105 104 0 4 1 402 }
+Floor { 104 103 105 4 1 403 }
+Floor { 103 102 104 4 1 402 }
+
+// extern interfaces
+Interface { 402 1 27 }
+UpDownButton { 403 1 27 }
+
+// 1 elevator
+Elevator { 27 1 10 104 3 303 304 305 }
+
+// intern interfaces
+Interface { 303 1 103 }
+Interface { 304 1 104 }
+Interface { 305 1 105 }
+
+// 3 persons
+Person { 60 104 105 3 5 0 }
+Person { 61 104 103 3 5 0 }
+Person { 62 103 104 12 5 1 }
