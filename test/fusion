@@ -1,4 +1,4 @@
-// --- First test
+// --- First test: Pick the elevator such that it arrives
 
 // 3 floors
 Floor { 12 11 13 4 1 40 }
@@ -28,7 +28,7 @@ Interface { 32 1 12 }
 Person { 50 11 10 7 5 0 }
 Person { 51 12 10 7 5 0 }
 
-// --- Second test
+// --- Second test: the elevator arrives at the middle of an odd-height floor - nothing special here
 
 // 4 floors
 Floor { 16 15 17 5 1 42 }
@@ -52,7 +52,7 @@ Interface { 34 1 14 }
 Interface { 35 1 15 }
 Interface { 36 1 16 }
 
-// --- Third test
+// --- Third test: if elevator is overweight and a person comes late, weird stuff happens
 
 // 2 floors
 Floor { 18 17 0 4 1 44 }
